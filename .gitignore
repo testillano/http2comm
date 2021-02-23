@@ -1,5 +1,9 @@
+# cmake
 CMakeCache.txt
 **/CMakeFiles
 **/Makefile
 _deps/
 **/cmake_install.cmake
+
+# Libs
+**/*.a
