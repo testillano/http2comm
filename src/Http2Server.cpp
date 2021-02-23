@@ -91,9 +91,9 @@ void Http2Server::commitError(std::shared_ptr<Stream> stream,
         j_errorCause = "{\"cause\":\"" + (s_errorCause + "\"}");
     }
 
-    TRACE(ert::tracing::Logger::Error,
-          "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
-          req.uri().path.c_str(), code, s_errorCause.c_str());
+    ert::tracing::Logger::error(ert::tracing::Logger::asString(
+                                    "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
+                                    req.uri().path.c_str(), code, s_errorCause.c_str()), ERT_FILE_LOCATION);
 
     ResponseHeader responseHeader(api_version_, location, allowedMethods);
 
@@ -207,7 +207,7 @@ int Http2Server::serve(const std::string& bind_address,
         std::stringstream ss;
         ss << "Initialization error in " << name_ << " (" << bind_address << ":" <<
            listen_port << "): " << ec.message();
-        TRACE(ert::tracing::Logger::Error, ss.str().c_str())
+        ert::tracing::Logger::error(ss.str().c_str(), ERT_FILE_LOCATION);
         std::cerr << ss.str() << '\n';
         return EXIT_FAILURE;
     }

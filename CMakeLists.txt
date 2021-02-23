@@ -2,7 +2,7 @@
 # Versions #
 ############
 cmake_minimum_required (VERSION 3.5.1)
-project(ert_http2comm VERSION 1.0.0 LANGUAGES CXX)
+project(ert_http2comm VERSION 0.0.2 LANGUAGES CXX)
 
 set(MAIN_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -27,7 +27,7 @@ include(FetchContent)
 
 FetchContent_Declare(ert_logger
   GIT_REPOSITORY https://github.com/testillano/logger.git
-  GIT_TAG v1.0.1)
+  GIT_TAG v1.0.2)
 message(STATUS  "Fetching ert_logger ... this may take a while")
 FetchContent_GetProperties(ert_logger)
 

@@ -58,8 +58,8 @@ Http2Connection::Http2Connection(const std::string& host,
     session_.on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
     {
 
-        TRACE(ert::tracing::Logger::Informational, "Connected to %s:%s", host_.c_str(),
-              port_.c_str());
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString(
+                             "Connected to %s:%s", host_.c_str(), port_.c_str()), ERT_FILE_LOCATION));
         status_ = Status::OPEN;
         status_change_cond_var_.notify_one();
 
@@ -67,9 +67,8 @@ Http2Connection::Http2Connection(const std::string& host,
 
     session_.on_error([this](const boost::system::error_code & ec)
     {
-        TRACE(ert::tracing::Logger::Informational,
-              "Error in the connection to %s:%s : %s", host_.c_str(), port_.c_str(),
-              ec.message().c_str());
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString(
+                             "Error in the connection to %s:%s : %s", host_.c_str(), port_.c_str(), ec.message().c_str()), ERT_FILE_LOCATION));
 
         notifyClose();
     });

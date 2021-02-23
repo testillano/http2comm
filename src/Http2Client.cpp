@@ -104,10 +104,10 @@ Http2Client::response Http2Client::send(
 
     auto url = getUri(uri_path);
     auto method_str = ::method_to_str[method];
-    TRACE(ert::tracing::Logger::Informational,
-          "Sending %s request to: %s; Data: %s; server connection status: %d",
-          method_str.c_str(), url.c_str(), json.c_str(),
-          static_cast<int>(connection_->getStatus()));
+    LOGINFORMATIONAL(ert::tracing::Logger::informational(
+                         ert::tracing::Logger::asString("Sending %s request to: %s; Data: %s; server connection status: %d",
+                                 method_str.c_str(), url.c_str(), json.c_str(),
+                                 static_cast<int>(connection_->getStatus())), ERT_FILE_LOCATION));
 
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
                            const nga::header_map & headers, boost::system::error_code & ec)
@@ -144,9 +144,8 @@ Http2Client::response Http2Client::send(
                 {
                     //setting the value on 'response' (promise) will unlock 'done' (future)
                     task->response.set_value(Http2Client::response {task->data, res.status_code()});
-                    TRACE(ert::tracing::Logger::Debug,
-                          "Request has been answered with %d; Data: %s", res.status_code(),
-                          task->data.c_str());
+                    LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString(
+                            "Request has been answered with %d; Data: %s", res.status_code(), task->data.c_str()), ERT_FILE_LOCATION));
                 }
             });
         });
@@ -161,7 +160,7 @@ Http2Client::response Http2Client::send(
     //waits until 'done' (future) is available using the timeout
     if (task->done.wait_for(request_timeout_) == std::future_status::timeout)
     {
-        TRACE(ert::tracing::Logger::Error, "Request has timed out");
+        ert::tracing::Logger::error("Request has timed out", ERT_FILE_LOCATION);
         return Http2Client::response();
     }
     else
