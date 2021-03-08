@@ -9,12 +9,12 @@
                                     |_|
 
  HTTP/2 COMM LIBRARY C++ Based in @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2)
- Version 1.0.0
+ Version 0.0.z
  https://github.com/testillano/http2comm
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
-Copyright (c) 2004-2021 Eduardo Ramos <http://www.teslayout.com>.
+Copyright (c) 2021 Eduardo Ramos
 
 Permission is hereby  granted, free of charge, to any  person obtaining a copy
 of this software and associated  documentation files (the "Software"), to deal
@@ -39,10 +39,10 @@ SOFTWARE.
 #include <nghttp2/asio_http2_client.h>
 #include <map>
 
-#include <tracing/Logger.hpp>
+#include <ert/tracing/Logger.hpp>
 
-#include <http2comm/Http2Client.hpp>
-#include <http2comm/Http2Connection.hpp>
+#include <ert/http2comm/Http2Client.hpp>
+#include <ert/http2comm/Http2Connection.hpp>
 
 namespace nga = nghttp2::asio_http2;
 

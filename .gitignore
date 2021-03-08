@@ -1,9 +1,17 @@
-# cmake
+**/*.orig
+.cproject
+.project
+.vscode
+cmake-build-*
 CMakeCache.txt
 **/CMakeFiles
-**/Makefile
-_deps/
 **/cmake_install.cmake
+**/Makefile
+build
+install_manifest.txt
+CMakeDoxygenDefaults.cmake
+CMakeDoxyfile.in
+docs/doxygen/html
+docs/doxygen/man
+docs/doxygen/latex
 
-# Libs
-**/*.a
