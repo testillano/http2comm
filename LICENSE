@@ -1,4 +1,3 @@
-/*
             _          _     _   _        ___
            | |        | |   | | | |      |__ \
    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___
@@ -33,71 +32,3 @@ AUTHORS  OR COPYRIGHT  HOLDERS  BE  LIABLE FOR  ANY  CLAIM,  DAMAGES OR  OTHER
 LIABILITY, WHETHER IN AN ACTION OF  CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-*/
-
-#ifndef ERT_HTTP2COMM_HTTP_H_
-#define ERT_HTTP2COMM_HTTP_H_
-
-#include <string>
-
-namespace ert
-{
-namespace http2comm
-{
-
-class ResponseCode
-{
-public:
-    enum Value
-    {
-        OK = 200,
-        CREATED = 201,
-        ACCEPTED = 202,
-        NO_CONTENT = 204,
-        MULTIPLE_CHOICES = 300,
-        BAD_REQUEST = 400,
-        UNAUTHORIZED = 401,
-        NOT_FOUND = 404,
-        METHOD_NOT_ALLOWED = 405,
-        LENGTH_REQUIRED = 411,
-        URI_TOO_LONG = 414,
-        UNSUPPORTED_MEDIA_TYPE = 415,
-        UNPROCESSABLE = 422,
-        INTERNAL_SERVER_ERROR = 500,
-        NOT_IMPLEMENTED = 501,
-        SERVICE_UNAVAILABLE = 503
-    };
-};
-
-const std::pair<int, std::string> WRONG_URI (
-    ResponseCode::NOT_FOUND,
-    "");
-
-const std::pair<int, std::string> WRONG_API_NAME_OR_VERSION(
-    ResponseCode::BAD_REQUEST,
-    "INVALID_API");
-
-const std::pair<int, std::string> SYSTEM_FAILURE (
-    ResponseCode::INTERNAL_SERVER_ERROR,
-    "SYSTEM_FAILURE");
-
-const std::pair<int, std::string> INCORRECT_LENGTH (
-    ResponseCode::LENGTH_REQUIRED,
-    "INCORRECT_LENGTH");
-
-const std::pair<int, std::string> UNSUPPORTED_MEDIA_TYPE (
-    ResponseCode::UNSUPPORTED_MEDIA_TYPE,
-    "UNSUPPORTED_MEDIA_TYPE");
-
-const std::pair<int, std::string> METHOD_NOT_ALLOWED (
-    ResponseCode::METHOD_NOT_ALLOWED,
-    "METHOD_NOT_ALLOWED");
-
-const std::pair<int, std::string> METHOD_NOT_IMPLEMENTED (
-    ResponseCode::NOT_IMPLEMENTED,
-    "METHOD_NOT_IMPLEMENTED");
-
-}
-}
-
-#endif

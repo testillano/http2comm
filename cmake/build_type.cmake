@@ -28,4 +28,6 @@ function(set_cmake_build_type)
 
     endif( DEFINED CMAKE_BUILD_TYPE AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "" )
 
+    message("CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+
 endfunction()
