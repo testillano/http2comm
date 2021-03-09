@@ -18,7 +18,7 @@ process the requests and answers properly.
 
 This image is already available at docker hub for every repository tag, and also for master as `latest`:
 
-     > docker pull testillano/http2comm_build
+     > docker pull ${img}
 
 ### Build library
 
