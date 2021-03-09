@@ -1,3 +1,5 @@
+[TOC]
+
 # C++ HTTP/2 wrapper library - WORK IN PROGRESS
 
 This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2).
