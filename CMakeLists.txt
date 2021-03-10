@@ -2,7 +2,7 @@
 # Versions #
 ############
 cmake_minimum_required (VERSION 3.5.1)
-project(ert_http2comm VERSION 0.0.3 LANGUAGES CXX)
+project(ert_http2comm VERSION v0.0.4 LANGUAGES CXX)
 
 set(MAIN_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)

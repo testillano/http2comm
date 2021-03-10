@@ -13,10 +13,13 @@ process the requests and answers properly.
      > cd ./docker/http2comm_build
      > tag=$(git tag | grep -E '^v[0-9.]+$' | tail -n -1 | cut -c2-) # remove leading 'v'
      > img=testillano/http2comm_build:${tag}
-     > docker build --rm -t ${img} .
+     > make_procs=$(grep processor /proc/cpuinfo -c)
+     > build_type=Release
+     > [ "${build_type}" = "Debug" ] && img+="-deb" # not propagated to parent image tag
+     > docker build --rm --build-arg make_procs=${make_procs} --build-arg build_type=${build_type} -t ${img} .
      > cd - >/dev/null # return to project root
 
-#### Download from docker hub
+#### Or download from docker hub
 
 This image is already available at docker hub for every repository tag, and also for master as `latest`:
 
@@ -26,7 +29,7 @@ This image is already available at docker hub for every repository tag, and also
 
 With the previous image, we can now build the library:
 
-     > envs="-e build_type=Release -e make_procs=$(grep processor /proc/cpuinfo -c)"
+     > envs="-e BUILD_TYPE=Release -e MAKE_PROCS=$(grep processor /proc/cpuinfo -c)"
      > docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code ${img}
 
 ## Build project natively
@@ -52,7 +55,14 @@ You could also change the compilers used:
 
 ### Requirements
 
-Check the requirements installed at building dockerfile: `./docker/http2comm_build/Dockerfile`.
+Check the requirements described at building `dockerfile` (`./docker/http2comm_build/Dockerfile`) as well as all the ascendant docker images which are inherited:
+
+```
+http2comm_build
+   |
+   V
+nghttp2_build (https://github.com/testillano/nghttp2_build)
+```
 
 ### Build
 
