@@ -2,7 +2,7 @@
 # Versions #
 ############
 cmake_minimum_required (VERSION 3.5.1)
-project(ert_http2comm VERSION v0.0.4 LANGUAGES CXX)
+project(ert_http2comm VERSION 0.0.5 LANGUAGES CXX)
 
 set(MAIN_PROJECT OFF)
 if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -87,7 +87,7 @@ add_subdirectory( src )
 # Install #
 ###########
 #SET(MY_OWN_INSTALL_PREFIX "/opt/ert_http2comm" CACHE PATH "Prefix prepended to install directories")
-SET(CMAKE_INSTALL_PREFIX "${MY_OWN_INSTALL_PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
+#SET(CMAKE_INSTALL_PREFIX "${MY_OWN_INSTALL_PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
 
 include(GNUInstallDirs)
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")

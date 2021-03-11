@@ -58,7 +58,7 @@ You could also change the compilers used:
 Check the requirements described at building `dockerfile` (`./docker/http2comm_build/Dockerfile`) as well as all the ascendant docker images which are inherited:
 
 ```
-http2comm_build
+http2comm_build (./docker/http2comm_build/Dockerfile)
    |
    V
 nghttp2_build (https://github.com/testillano/nghttp2_build)

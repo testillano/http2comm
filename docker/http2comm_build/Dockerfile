@@ -7,11 +7,11 @@ WORKDIR /code/build
 
 ARG make_procs=4
 ARG build_type=Release
-ARG logger_ver=v1.0.5
+ARG ert_logger_ver=v1.0.5
 
 # ert_logger
 RUN set -x && \
-    wget https://github.com/testillano/logger/archive/${logger_ver}.tar.gz && tar xvf ${logger_ver}.tar.gz && cd logger-*/ && \
+    wget https://github.com/testillano/logger/archive/${ert_logger_ver}.tar.gz && tar xvf ${ert_logger_ver}.tar.gz && cd logger-*/ && \
     cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
