@@ -8,50 +8,56 @@ process the requests and answers properly.
 
 ## Build project with docker
 
-### Build image
+### Builder image
 
-     > cd ./docker/http2comm_build
-     > tag=$(git tag | grep -E '^v[0-9.]+$' | tail -n -1 | cut -c2-) # remove leading 'v'
-     > img=testillano/http2comm_build:${tag}
-     > make_procs=$(grep processor /proc/cpuinfo -c)
-     > build_type=Release
-     > [ "${build_type}" = "Debug" ] && img+="-deb" # not propagated to parent image tag
-     > docker build --rm --build-arg make_procs=${make_procs} --build-arg build_type=${build_type} -t ${img} .
-     > cd - >/dev/null # return to project root
+This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`. Anyway, to create it, just type the following:
 
-#### Or download from docker hub
+```bash
+$ make_procs=$(grep processor /proc/cpuinfo -c)
+$ docker build --rm --build-arg make_procs=${make_procs} -t testillano/http2comm_build .
+```
 
-This image is already available at docker hub for every repository tag, and also for master as `latest`:
+### Usage
 
-     > docker pull ${img}
+To run compilation over this image, just run with `docker`. The `entrypoint` will search for `CMakeLists.txt` file at project root (i.e. mounted on working directory `/code`) to generate `makefiles` and then, builds the source code with `make`. There are two available environment variables: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`) which are inherited from base image (`nghttp2_build`):
 
-### Build library
-
-With the previous image, we can now build the library:
-
-     > envs="-e BUILD_TYPE=Release -e MAKE_PROCS=$(grep processor /proc/cpuinfo -c)"
-     > docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code ${img}
+```bash
+$ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
+$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+         testillano/http2comm_build
+```
 
 ## Build project natively
 
 This is a cmake-based building library, so you may install cmake:
 
-     > sudo apt-get install cmake
+```bash
+$ sudo apt-get install cmake
+```
 
 And then generate the makefiles from project root directory:
 
-     > cmake .
+```bash
+$ cmake .
+```
 
 You could specify type of build, 'Debug' or 'Release', for example:
 
-     > cmake -DCMAKE_BUILD_TYPE=Debug .
-     > cmake -DCMAKE_BUILD_TYPE=Release .
+```bash
+$ cmake -DCMAKE_BUILD_TYPE=Debug .
+$ cmake -DCMAKE_BUILD_TYPE=Release .
+```
 
 You could also change the compilers used:
 
-     > cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++     -DCMAKE_C_COMPILER=/usr/bin/gcc
-     or
-     > cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
+```bash
+$ cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++     -DCMAKE_C_COMPILER=/usr/bin/gcc
+```
+or
+
+```bash
+$ cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
+```
 
 ### Requirements
 
@@ -60,44 +66,55 @@ Check the requirements described at building `dockerfile` (`./docker/http2comm_b
 ```
 http2comm_build (./docker/http2comm_build/Dockerfile)
    |
-   V
 nghttp2_build (https://github.com/testillano/nghttp2_build)
 ```
 
 ### Build
 
-     > make
+```bash
+$ make
+```
 
 ### Clean
 
-     > make clean
+```bash
+$ make clean
+```
 
 ### Documentation
 
-     > make doc
+```bash
+$ make doc
+```
 
-
-     > cd docs/doxygen
-     > tree -L 1
-
+```bash
+$ cd docs/doxygen
+$ tree -L 1
      .
      ├── Doxyfile
      ├── html
      ├── latex
      └── man
+```
 
 ### Install
 
-     > sudo make install
+```bash
+$ sudo make install
+```
 
 Optionally you could specify another prefix for installation:
 
-     > cmake -DMY_OWN_INSTALL_PREFIX=$HOME/mylibs/ert_http2comm
-     > make install
+```bash
+$ cmake -DMY_OWN_INSTALL_PREFIX=$HOME/mylibs/ert_http2comm
+$ make install
+```
 
 ### Uninstall
 
-     > cat install_manifest.txt | sudo xargs rm
+```bash
+$ cat install_manifest.txt | sudo xargs rm
+```
 
 ## Integration
 
@@ -142,7 +159,10 @@ target_link_libraries(foo PRIVATE ert_http2comm::ert_http2comm)
 
 ## Contributing
 
-Please, execute `astyle` formatting before any pull request:
+Please, execute `astyle` formatting (using [frankwolf image](https://hub.docker.com/r/frankwolf/astyle)) before any pull request:
 
-    docker pull frankwolf/astyle
-    docker run -it --rm -v $PWD:/data frankwolf/astyle include/ert/http2comm/*.hpp src/*.cpp
+```bash
+$ sources=$(find . -name "*.hpp" -o -name "*.cpp")
+$ docker run -it --rm -v $PWD:/data frankwolf/astyle ${sources}
+```
+

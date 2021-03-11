@@ -15,3 +15,4 @@ RUN set -x && \
     cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
+
