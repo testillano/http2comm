@@ -27,6 +27,13 @@ $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
          testillano/http2comm_build
 ```
 
+You could generate documentation understanding the builder script behind ([nghttp2 build entrypoint](https://github.com/testillano/nghttp2_build/blob/master/deps/build.sh)):
+
+```bash
+$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+         testillano/http2comm_build "" doc
+```
+
 ## Build project natively
 
 This is a cmake-based building library, so you may install cmake:
