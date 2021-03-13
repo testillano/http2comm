@@ -7,7 +7,7 @@ WORKDIR /code/build
 
 ARG make_procs=4
 ARG build_type=Release
-ARG ert_logger_ver=v1.0.5
+ARG ert_logger_ver=v1.0.7
 
 # ert_logger
 RUN set -x && \
