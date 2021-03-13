@@ -9,7 +9,7 @@ ARG make_procs=4
 ARG build_type=Release
 ARG ert_logger_ver=v1.0.7
 
-RUN apk add doxygen
+RUN apk add doxygen graphviz
 
 # ert_logger
 RUN set -x && \
