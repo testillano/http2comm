@@ -32,7 +32,7 @@ read ert_logger_ver
 [ -z "${ert_logger_ver}" ] && ert_logger_ver=${ert_logger_ver__dflt}
 bargs+=" --build-arg ert_logger_ver=${ert_logger_ver}"
 
-docker build --rm ${bargs} -t testillano/http2comm_build .
+docker build --rm ${bargs} -t testillano/http2comm_build . || exit 1
 
 echo
 echo "-------------"
@@ -45,6 +45,6 @@ read build_type
 
 rm -f CMakeCache.txt
 envs="-e MAKE_PROCS=${make_procs} -e BUILD_TYPE=${build_type}"
-docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_build
+docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_build || exit 1
 docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_build "" doc
 
