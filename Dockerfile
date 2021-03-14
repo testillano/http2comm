@@ -1,4 +1,5 @@
-FROM testillano/nghttp2_build:latest
+ARG base_ver=latest
+FROM testillano/nghttp2_build:${base_ver}
 MAINTAINER testillano
 
 LABEL testillano.http2comm_build.description="Docker image to build ert_http2comm library"

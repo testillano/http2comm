@@ -8,16 +8,23 @@ process the requests and answers properly.
 
 ## Build project with docker
 
+You could use the automation script `./build.sh` located at project root to cover all the build stages needed. To better understand, read the following:
+
 ### Builder image
 
-This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`. Anyway, to create it, just type the following:
+This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`.
+Anyway, you could type something like this to build the image:
+
 
 ```bash
-$ make_procs=$(grep processor /proc/cpuinfo -c)
-$ docker build --rm --build-arg make_procs=${make_procs} -t testillano/http2comm_build .
+$ bargs="--build-arg make_procs=$(grep processor /proc/cpuinfo -c)"
+$ bargs+=" --build-arg base_ver=<x.y.z>" # put the desired nghttp2_build version here
+$ docker build --rm ${bargs} -t testillano/http2comm_build:<your tag> .
 ```
 
 ### Usage
+
+Builder image is used to build this library.
 
 To run compilation over this image, just run with `docker`. The `entrypoint` will search for `CMakeLists.txt` file at project root (i.e. mounted on working directory `/code`) to generate `makefiles` and then, builds the source code with `make`. There are two available environment variables: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`) which are inherited from base image (`nghttp2_build`):
 
