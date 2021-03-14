@@ -30,7 +30,7 @@ bargs+=" --build-arg base_ver=${base_ver}"
 echo "Input ert_logger version [${ert_logger_ver__dflt}]:"
 read ert_logger_ver
 [ -z "${ert_logger_ver}" ] && ert_logger_ver=${ert_logger_ver__dflt}
-bargs+=" --build-arg ert_logger_ver=${ert_logger_ver__dflt}"
+bargs+=" --build-arg ert_logger_ver=${ert_logger_ver}"
 
 docker build --rm ${bargs} -t testillano/http2comm_build .
 
