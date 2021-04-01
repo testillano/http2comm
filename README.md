@@ -1,44 +1,77 @@
-[TOC]
-
 # C++ HTTP/2 wrapper library - WORK IN PROGRESS
 
 This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2).
 It offers a quick way to instantiate a client or server and define their virtual methods to
 process the requests and answers properly.
 
-## Build project with docker
+## Project image
 
-You could use the automation script `./build.sh` located at project root to cover all the build stages needed. To better understand, read the following:
+This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`:
 
-### Builder image
+```bash
+$ docker pull testillano/http2comm:<tag>
+```
 
-This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`.
-Anyway, you could type something like this to build the image:
+You could also build it using the script `./build.sh` located at project root:
 
 
 ```bash
-$ bargs="--build-arg make_procs=$(grep processor /proc/cpuinfo -c)"
-$ bargs+=" --build-arg base_ver=<x.y.z>" # put the desired nghttp2_build version here
-$ docker build --rm ${bargs} -t testillano/http2comm_build:<your tag> .
+$ ./build.sh --project-image
 ```
 
-### Usage
+This image is built with `./Dockerfile`.
 
-Builder image is used to build this library.
+## Usage
 
-To run compilation over this image, just run with `docker`. The `entrypoint` will search for `CMakeLists.txt` file at project root (i.e. mounted on working directory `/code`) to generate `makefiles` and then, builds the source code with `make`. There are two available environment variables: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`) which are inherited from base image (`nghttp2_build`):
+To run compilation over this image, just run with `docker`. The `entrypoint` (check it at `./deps/build.sh`) will fallback from `cmake` (looking for `CMakeLists.txt` file at project root, i.e. mounted on working directory `/code` to generate makefiles) to `make`, in order to build your source code. There are two available environment variables used by the builder script of this image: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`):
 
 ```bash
 $ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
 $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         testillano/http2comm_build
+         testillano/http2comm:<tag>
 ```
 
-You could generate documentation understanding the builder script behind ([nghttp2 build entrypoint](https://github.com/testillano/nghttp2_build/blob/master/deps/build.sh)):
+## Build project with docker
+
+### Builder image
+
+This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`:
+
+```bash
+$ docker pull testillano/http2comm_builder:<tag>
+```
+
+You could also build it using the script `./build.sh` located at project root:
+
+
+```bash
+$ ./build.sh --builder-image
+```
+
+This image is built with `./Dockerfile.build`.
+
+### Usage
+
+Builder image is used to build the library. To run compilation over this image, again, just run with `docker`:
+
+```bash
+$ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
+$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+         testillano/http2comm_builder:<tag>
+```
+
+You could generate documentation passing extra arguments to the [entry point](https://github.com/testillano/nghttp2/blob/master/deps/build.sh) behind:
 
 ```bash
 $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         testillano/http2comm_build "" doc
+         testillano/http2comm_builder::<tag>-build "" doc
+```
+
+You could also build the library using the script `./build.sh` located at project root:
+
+
+```bash
+$ ./build.sh --library
 ```
 
 ## Build project natively
@@ -75,12 +108,12 @@ $ cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
 
 ### Requirements
 
-Check the requirements described at building `dockerfile` (`./docker/http2comm_build/Dockerfile`) as well as all the ascendant docker images which are inherited:
+Check the requirements described at building `dockerfile` (`./Dockerfile.build`) as well as all the ascendant docker images which are inherited:
 
 ```
-http2comm_build (./docker/http2comm_build/Dockerfile)
+http2comm builder (./Dockerfile.build)
    |
-nghttp2_build (https://github.com/testillano/nghttp2_build)
+nghttp2 (https://github.com/testillano/nghttp2)
 ```
 
 ### Build
