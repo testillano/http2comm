@@ -15,20 +15,22 @@ ert_logger_ver__dflt=v1.0.7
 usage() {
   cat << EOF
 
-  Usage: $0 [--project-image|--builder-image|--library]
+  Usage: $0 [--builder-image|--project|--project-image|--auto]
 
-         --project-image: builds project image from './Dockerfile'.
          --builder-image: builds base image from './Dockerfile.build'.
-         --library:       builds the project library using builder image.
+         --project:       builds the project library using builder image.
+         --project-image: builds project image from './Dockerfile'.
+         --auto:          builds everything using defaults. For headless mode with no default values,
+                          you may prepend or export asked/environment variables for the corresponding
+                          docker procedure:
 
-         For headless mode, prepend/export asked variables:
+                             --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
+                             --project:       make_procs, build_type
+                             --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
 
-         --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
-         --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
+                          For example:
 
-         or environment variables towards docker run:
-
-         --library:       make_procs, build_type
+                             build_type=Debug $0 --builder-image
 
 EOF
 }
@@ -51,24 +53,6 @@ _read() {
   fi
 }
 
-build_project_image() {
-  echo
-  echo "=== Build http2comm image ==="
-  echo
-  _read image_tag ${image_tag__dflt}
-  _read base_tag ${base_tag__dflt}
-  _read make_procs ${make_procs__dflt}
-  _read build_type ${build_type__dflt}
-
-  bargs="--build-arg base_tag=${base_tag}"
-  bargs+=" --build-arg make_procs=${make_procs}"
-  bargs+=" --build-arg build_type=${build_type}"
-
-  set -x
-  docker build --rm ${bargs} -t testillano/http2comm:${image_tag} . || return 1
-  set +x
-}
-
 build_builder_image() {
   echo
   echo "=== Build http2comm_builder image ==="
@@ -89,14 +73,13 @@ build_builder_image() {
   set +x
 }
 
-build_library() {
+build_project() {
   echo
-  echo "=== Build http2comm library ==="
+  echo "=== Build http2comm project ==="
   echo
   _read make_procs ${make_procs__dflt}
   _read build_type ${build_type__dflt}
 
-  rm -f CMakeCache.txt
   envs="-e MAKE_PROCS=${make_procs} -e BUILD_TYPE=${build_type}"
 
   set -x
@@ -104,15 +87,42 @@ build_library() {
   docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_builder "" doc || return 1
   set +x
 }
+
+build_project_image() {
+  echo
+  echo "=== Build http2comm image ==="
+  echo
+  _read image_tag ${image_tag__dflt}
+  _read base_tag ${base_tag__dflt}
+  _read make_procs ${make_procs__dflt}
+  _read build_type ${build_type__dflt}
+
+  bargs="--build-arg base_tag=${base_tag}"
+  bargs+=" --build-arg make_procs=${make_procs}"
+  bargs+=" --build-arg build_type=${build_type}"
+
+  set -x
+  docker build --rm ${bargs} -t testillano/http2comm:${image_tag} . || return 1
+  set +x
+}
+
+build_auto() {
+  source <(grep -E '^[a-z_]+__dflt' $0 | sed 's/^/export /' | sed 's/__dflt//') # export defaults to automate
+  build_builder_image && build_project && build_project_image
+}
+
 #############
 # EXECUTION #
 #############
 cd $(dirname $0)
 
+rm -f CMakeCache.txt
+
 case "$1" in
-  --project-image) build_project_image ;;
   --builder-image) build_builder_image ;;
-  --library) build_library ;;
+  --project) build_project ;;
+  --project-image) build_project_image ;;
+  --auto) build_auto ;;
   *) usage && exit 1 ;;
 esac
 
