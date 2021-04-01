@@ -69,6 +69,7 @@ build_builder_image() {
   bargs+=" --build-arg ert_logger_ver=${ert_logger_ver}"
 
   set -x
+  rm -f CMakeCache.txt
   docker build --rm ${bargs} -f Dockerfile.build -t testillano/http2comm_builder:${image_tag} . || return 1
   set +x
 }
@@ -83,6 +84,7 @@ build_project() {
   envs="-e MAKE_PROCS=${make_procs} -e BUILD_TYPE=${build_type}"
 
   set -x
+  rm -f CMakeCache.txt
   docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_builder || return 1
   docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code testillano/http2comm_builder "" doc || return 1
   set +x
@@ -102,6 +104,7 @@ build_project_image() {
   bargs+=" --build-arg build_type=${build_type}"
 
   set -x
+  rm -f CMakeCache.txt
   docker build --rm ${bargs} -t testillano/http2comm:${image_tag} . || return 1
   set +x
 }
@@ -115,8 +118,6 @@ build_auto() {
 # EXECUTION #
 #############
 cd $(dirname $0)
-
-rm -f CMakeCache.txt
 
 case "$1" in
   --builder-image) build_builder_image ;;
