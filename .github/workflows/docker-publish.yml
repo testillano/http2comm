@@ -61,34 +61,33 @@ jobs:
           file: Dockerfile
           context: .
           #push: true
-          build-args: base_tag:local
-
+          build-args: base_tag=local
+      -
         name: Image2 digest
         run: echo ${{ steps.docker_build2.outputs.digest }}
       -
         name: Push images manually
         run: |
-          IMAGE_ID1=docker.io/testillano/http2comm_builder:local
-          IMAGE_ID2=docker.io/testillano/http2comm:local
-
+          IMAGE_ID1=docker.io/testillano/http2comm_builder
+          IMAGE_ID2=docker.io/testillano/http2comm
+          
           # workflow dispatch event:
           image_tag=${{ github.event.inputs.tag }}
           echo Workflow dispatch image_tag=$image_tag
-
+          
           # Strip git ref prefix from version
           [ -z "${image_tag}" ] && image_tag=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-
+          
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && image_tag=$(echo $image_tag | sed -e 's/^v//')
-
+          
           # Use Docker `latest` tag convention
           [ "$image_tag" == "master" ] && image_tag=latest
-
+          
           echo Processed image_tag=$image_tag
-
+          
           docker tag testillano/http2comm_builder:local $IMAGE_ID1:$image_tag
           docker tag testillano/http2comm:local $IMAGE_ID2:$image_tag
-
+          
           docker push $IMAGE_ID1:$image_tag
           docker push $IMAGE_ID2:$image_tag
-
