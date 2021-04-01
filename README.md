@@ -52,7 +52,7 @@ This image is built with `./Dockerfile.build`.
 
 ### Usage
 
-Builder image is used to build the library. To run compilation over this image, again, just run with `docker`:
+Builder image is used to build the project library. To run compilation over this image, again, just run with `docker`:
 
 ```bash
 $ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
@@ -71,7 +71,7 @@ You could also build the library using the script `./build.sh` located at projec
 
 
 ```bash
-$ ./build.sh --library
+$ ./build.sh --project
 ```
 
 ## Build project natively
