@@ -63,7 +63,7 @@ jobs:
           #push: true
           build-args: base_tag:local
 
-        name: Image digest
+        name: Image2 digest
         run: echo ${{ steps.docker_build2.outputs.digest }}
       -
         name: Push images manually
