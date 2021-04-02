@@ -46,8 +46,6 @@ SOFTWARE.
 #include <ert/http2comm/Http2Client.hpp>
 #include <ert/http2comm/Http2Connection.hpp>
 
-namespace nga = nghttp2::asio_http2;
-
 namespace
 {
 std::map<ert::http2comm::Http2Client::Method, std::string> method_to_str = { {
@@ -112,7 +110,7 @@ Http2Client::response Http2Client::send(
                                  static_cast<int>(connection_->getStatus())), ERT_FILE_LOCATION));
 
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
-                           const nga::header_map & headers, boost::system::error_code & ec)
+                           const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
     {
         return sess.submit(ec, method_str, url, json, headers);
     };
@@ -125,9 +123,9 @@ Http2Client::response Http2Client::send(
         boost::system::error_code ec;
 
         //configure headers
-        nga::header_value ctValue = {"application/json", 0};
-        nga::header_value clValue = {std::to_string(json.length()), 0};
-        nga::header_map headers = { {"content-type", ctValue}, {"content-length", clValue} };
+        nghttp2::asio_http2::header_value ctValue = {"application/json", 0};
+        nghttp2::asio_http2::header_value clValue = {std::to_string(json.length()), 0};
+        nghttp2::asio_http2::header_map headers = { {"content-type", ctValue}, {"content-length", clValue} };
 
         //perform submit
         auto req = submit(session, headers, ec);

@@ -47,6 +47,7 @@ SOFTWARE.
 
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/ResponseHeader.hpp>
+#include <ert/http2comm/QueueDispatcher.hpp>
 
 namespace ert
 {
@@ -58,64 +59,116 @@ class Http2Server
     std::string name_{};
     std::string api_name_{};
     std::string api_version_{};
-    nghttp2::asio_http2::server::request_cb handler();
-    std::atomic<int> w_threads_{};
-    int max_worker_threads_{};
+    QueueDispatcher *queue_dispatcher_;
 
-    void commitError(std::shared_ptr<Stream> stream,
-                     const nghttp2::asio_http2::server::request& req,
-                     std::pair<int, const std::string> /* error code/cause */,
-                     const std::string& location = "",
-                     const std::vector<std::string>& allowedMethods = std::vector<std::string>());
+    nghttp2::asio_http2::server::request_cb handler();
+    void launchWorker(std::shared_ptr<Stream> stream);
 
 protected:
 
     nghttp2::asio_http2::server::http2 server_;
 
-    void processRequest(std::shared_ptr<Stream> st,
-                        const nghttp2::asio_http2::server::request& req, const std::string&);
-
-
 public:
-    Http2Server(const std::string& name,
-                size_t maxWorkerThreads = -1) : name_(name),
-        max_worker_threads_(maxWorkerThreads) {;}
 
+    /**
+    *  Class constructor
+    *
+    *  @param name Server name.
+    *  @param workerThreads number of worker threads (dynamic creation by default).
+    */
+    Http2Server(const std::string& name, size_t workerThreads = -1);
+    ~Http2Server();
+
+    // setters
+
+    /**
+    * Sets the API name
+    */
     void setApiName(const std::string& apiName)
     {
         api_name_ = apiName;
     }
+
+    /**
+    * Sets the API version
+    */
     void setApiVersion(const std::string& apiVersion)
     {
         api_version_ = apiVersion;
     }
 
+    // getters
+
+    /**
+    * Gets the API path (<name>/<version>)
+    */
     std::string getApiPath() const
     {
         return (api_name_ + "/" + api_version_);
     }
 
+    /**
+    * Gets the API name
+    */
+    const std::string &getApiName() const
+    {
+        return (api_name_);
+    }
+
+    /**
+    * Gets the API version
+    */
+    const std::string &getApiVersion() const
+    {
+        return (api_version_);
+    }
+
+    /**
+    * Virtual implementable definition of allowed methods
+    */
     virtual bool checkMethodIsAllowed(
         const nghttp2::asio_http2::server::request& req,
         std::vector<std::string>& allowedMethods) = 0;
 
+    /**
+    * Virtual implementable definition of implemented methods
+    */
     virtual bool checkMethodIsImplemented(
         const nghttp2::asio_http2::server::request& req) = 0;
 
+    /**
+    * Virtual implementable definition of correct headers
+    */
     virtual bool checkHeaders(const nghttp2::asio_http2::server::request& req) = 0;
 
-    void launchWorker(std::shared_ptr<Stream> stream,
-                      const nghttp2::asio_http2::server::request& req, const std::string&);
-
-    // Reception callback to be defined
-    virtual void receive(const nghttp2::asio_http2::server::request&,
+    /**
+    * Virtual reception callback
+    *
+    * @param req nghttp2-asio request structure.
+    * @param requestBody request body received.
+    * @param statusCode response status code to be filled by reference.
+    * @param headers reponse headers to be filled by reference.
+    * @param responseBody response body to be filled by reference.
+    */
+    virtual void receive(const nghttp2::asio_http2::server::request& req,
                          const std::string& requestBody,
-                         unsigned int& statusCode, nghttp2::asio_http2::header_map& headers,
+                         unsigned int& statusCode,
+                         nghttp2::asio_http2::header_map& headers,
                          std::string& responseBody) = 0;
 
     // Default error handler
     //virtual nghttp2::asio_http2::server::request_cb errorHandler();
 
+    /**
+    * Server start
+    *
+    * @param bind_address server bind address.
+    * @param listen_port server listen port.
+    * @param key secure key for HTTP/2 communication.
+    * @param cert secure cert for HTTP/2 communication.
+    * @param numberThreads nghttp2 server threads (multi client).
+    * @param asynchronous boolean for non-blocking server start.
+    */
     int serve(const std::string& bind_address,
               const std::string& listen_port,
               const std::string& key,
@@ -123,6 +176,9 @@ public:
               int numberThreads,
               bool asynchronous = false);
 
+    /**
+    * Server stop
+    */
     int stop();
 };
 

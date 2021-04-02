@@ -56,99 +56,23 @@ namespace ert
 namespace http2comm
 {
 
-void Http2Server::launchWorker(std::shared_ptr<Stream> stream,
-                               const nghttp2::asio_http2::server::request& req, const std::string& requestBody)
-{
-    if (max_worker_threads_ > 0)
-    {
-        while (w_threads_ >= max_worker_threads_)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-    }
+Http2Server::Http2Server(const std::string& name, size_t workerThreads): name_(name) {
 
-    w_threads_++;
-    auto thread = std::thread([this, stream, &req, requestBody]()
+    queue_dispatcher_ = ((workerThreads != -1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr);
+}
+
+Http2Server::~Http2Server() {
+    delete queue_dispatcher_;
+}
+
+void Http2Server::launchWorker(std::shared_ptr<Stream> stream)
+{
+    auto thread = std::thread([this, stream]()
     {
-        processRequest(stream, req, requestBody);
-        w_threads_--;
+        stream->process();
     });
     thread.detach();
 }
-
-
-void Http2Server::commitError(std::shared_ptr<Stream> stream,
-                              const nghttp2::asio_http2::server::request& req,
-                              std::pair<int, const std::string> error,
-                              const std::string& location,
-                              const std::vector<std::string>& allowedMethods)
-{
-    int code = error.first;
-    std::string s_errorCause = "<none>";
-    std::string j_errorCause = "{}";
-
-    if (error.second != "")
-    {
-        s_errorCause = error.second;
-        j_errorCause = "{\"cause\":\"" + (s_errorCause + "\"}");
-    }
-
-    ert::tracing::Logger::error(ert::tracing::Logger::asString(
-                                    "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
-                                    req.uri().path.c_str(), code, s_errorCause.c_str()), ERT_FILE_LOCATION);
-
-    ResponseHeader responseHeader(api_version_, location, allowedMethods);
-
-    // commit results
-    stream->commit(code, responseHeader.getResponseHeader(j_errorCause.size(),
-                   code), j_errorCause);
-}
-
-
-void Http2Server::processRequest(std::shared_ptr<Stream> stream,
-                                 const nghttp2::asio_http2::server::request& req, const std::string& requestBody)
-{
-    std::vector<std::string> allowedMethods;
-
-    if (!checkMethodIsAllowed(req, allowedMethods))
-    {
-        commitError(stream, req, ert::http2comm::METHOD_NOT_ALLOWED, "",
-                    allowedMethods);
-    }
-    else if (!checkMethodIsImplemented(req))
-    {
-        commitError(stream, req, ert::http2comm::METHOD_NOT_IMPLEMENTED);
-    }
-    else
-    {
-        if (checkHeaders(req))
-        {
-            std::string apiPath = getApiPath();
-
-            if (apiPath != "")
-            {
-                if (!ert::http2comm::URLFunctions::matchPrefix(req.uri().path, apiPath))
-                {
-                    commitError(stream, req, ert::http2comm::WRONG_API_NAME_OR_VERSION);
-                    return;
-                }
-            }
-
-            unsigned int statusCode;
-            auto headers = nghttp2::asio_http2::header_map();
-            std::string responseBody;
-
-            receive(req, requestBody, statusCode, headers, responseBody);
-
-            stream->commit(statusCode, headers, responseBody);
-        }
-        else
-        {
-            commitError(stream, req, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
-        }
-    }
-}
-
 
 nghttp2::asio_http2::server::request_cb Http2Server::handler()
 {
@@ -164,13 +88,18 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
             }
             else
             {
-                auto stream = std::make_shared<Stream>(req, res, res.io_service());
+                auto stream = std::make_shared<Stream>(req, res, res.io_service(), request, this);
                 res.on_close([stream](uint32_t error_code)
                 {
                     stream->close(true);
                 });
 
-                launchWorker(stream, req, request->str());
+                if (queue_dispatcher_) {
+                    queue_dispatcher_->dispatch(stream); // pre initialized threads
+                }
+                else {
+                    launchWorker(stream); // dynamic threads creation
+                }
             }
         });
     };

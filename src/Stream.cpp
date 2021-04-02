@@ -38,18 +38,91 @@ SOFTWARE.
 */
 
 #include <mutex>
+#include <chrono> // temporary
 
 #include <nghttp2/asio_http2_server.h>
 
+#include <ert/tracing/Logger.hpp>
+
 #include <ert/http2comm/Stream.hpp>
+#include <ert/http2comm/Http.hpp>
+#include <ert/http2comm/Http2Server.hpp>
+#include <ert/http2comm/URLFunctions.hpp>
+#include <ert/http2comm/ResponseHeader.hpp>
 
 namespace ert
 {
 namespace http2comm
 {
 
+void Stream::processError(std::pair<int, const std::string> error, const std::string &location, const std::vector<std::string>& allowedMethods)
+{
+    int code = error.first;
+    std::string s_errorCause = "<none>";
+    std::string j_errorCause = "{}";
+
+    if (error.second != "")
+    {
+        s_errorCause = error.second;
+        j_errorCause = "{\"cause\":\"" + (s_errorCause + "\"}");
+    }
+
+    ert::tracing::Logger::error(ert::tracing::Logger::asString(
+                                    "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
+                                    req_.uri().path.c_str(), code, s_errorCause.c_str()), ERT_FILE_LOCATION);
+
+    ResponseHeader responseHeader(server_->getApiVersion(), location, allowedMethods);
+
+    // commit results
+    commit(code, responseHeader.getResponseHeader(j_errorCause.size(), code), j_errorCause);
+}
+
+void Stream::process()
+{
+    std::vector<std::string> allowedMethods;
+
+    if (!server_->checkMethodIsAllowed(req_, allowedMethods))
+    {
+        processError(ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
+    }
+    else if (!server_->checkMethodIsImplemented(req_))
+    {
+        processError(ert::http2comm::METHOD_NOT_IMPLEMENTED);
+    }
+    else
+    {
+        if (server_->checkHeaders(req_))
+        {
+            std::string apiPath = server_->getApiPath();
+
+            if (apiPath != "")
+            {
+                if (!ert::http2comm::URLFunctions::matchPrefix(req_.uri().path, apiPath))
+                {
+                    processError(ert::http2comm::WRONG_API_NAME_OR_VERSION);
+                    return;
+                }
+            }
+
+            unsigned int statusCode;
+            auto headers = nghttp2::asio_http2::header_map();
+            std::string responseBody;
+
+            server_->receive(req_, request_->str(), statusCode, headers, responseBody);
+
+            commit(statusCode, headers, responseBody);
+        }
+        else
+        {
+            processError(ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
+        }
+    }
+
+}
+
 void Stream::commit(unsigned int statusCode,
-                    const nghttp2::asio_http2::header_map& headers, const std::string& responseBody)
+                    const nghttp2::asio_http2::header_map& headers,
+                    const std::string& responseBody)
 {
     auto self = shared_from_this();
     io_service_.post([self, statusCode, headers, responseBody]()

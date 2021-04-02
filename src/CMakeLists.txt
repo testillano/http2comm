@@ -5,6 +5,7 @@ add_library (${ERT_HTTP2COMM_TARGET_NAME} STATIC
         ${CMAKE_CURRENT_LIST_DIR}/ResponseHeader.cpp
         ${CMAKE_CURRENT_LIST_DIR}/Stream.cpp
         ${CMAKE_CURRENT_LIST_DIR}/URLFunctions.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/QueueDispatcher.cpp
 )
 
 target_include_directories(${ERT_HTTP2COMM_TARGET_NAME}

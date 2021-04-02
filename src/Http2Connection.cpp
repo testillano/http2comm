@@ -42,8 +42,6 @@ SOFTWARE.
 #include <ert/tracing/Logger.hpp>
 #include <ert/http2comm/Http2Connection.hpp>
 
-namespace nga = nghttp2::asio_http2;
-
 namespace ert
 {
 namespace http2comm
@@ -52,7 +50,7 @@ Http2Connection::Http2Connection(const std::string& host,
                                  const std::string& port) :
     io_service_(new boost::asio::io_service()),
     work_(new boost::asio::io_service::work(*io_service_)),
-    session_( nga::client::session(*io_service_, host, port)),
+    session_(nghttp2::asio_http2::client::session(*io_service_, host, port)),
     status_(Status::NOT_OPEN),
     host_(host),
     port_(port)
@@ -117,7 +115,7 @@ void Http2Connection::close()
     notifyClose();
 }
 
-nga::client::session& Http2Connection::getSession()
+nghttp2::asio_http2::client::session& Http2Connection::getSession()
 {
     return session_;
 }
