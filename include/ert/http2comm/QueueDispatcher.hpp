@@ -37,81 +37,47 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef ERT_HTTP2COMM_STREAM_H_
-#define ERT_HTTP2COMM_STREAM_H_
+#ifndef ERT_HTTP2COMM_QUEUEDISPATCHER_H_
+#define ERT_HTTP2COMM_QUEUEDISPATCHER_H_
 
+#include <thread>
+#include <functional>
+#include <vector>
+#include <queue>
 #include <mutex>
-#include <sstream>
-#include <memory>
+#include <string>
+#include <condition_variable>
 
-#include <nghttp2/asio_http2_server.h>
-
+#include <ert/http2comm/Stream.hpp>
 
 namespace ert
 {
 namespace http2comm
 {
-class Http2Server;
-
-/**
- * This class allows the response of an http2 transaction to be run in a
- * separate thread from the libnghttp2 loop thread.
- *
- * Just create a new stream within the nghttp2 hander, set the close callback,
- * and launch the working thread with the stream (or insert in a concurrent queue):
- *
- * <pre>
- *    auto stream = std::make_shared<Stream>(req, res, res.io_service, requestStream, server);
- *    res.on_close([stream](uint32_t error_code) { stream->close(true); });
- *    auto thread = std::thread([stream]()
- *    {
- *      stream->process();
- *    });
- * </pre>
- *
- * @see https://gist.github.com/tatsuhiro-t/ba3f7d72d037027ae47b
- */
-class Stream : public std::enable_shared_from_this<Stream>
+class QueueDispatcher
 {
-    std::mutex mutex_;
-    const nghttp2::asio_http2::server::request& req_;
-    const nghttp2::asio_http2::server::response& res_;
-    boost::asio::io_service& io_service_;
-    std::shared_ptr<std::stringstream> request_;
-    Http2Server *server_;
-    bool closed_;
-
-    // Completes the nghttp2 transaction (res.end())
-    void commit(unsigned int statusCode,
-                const nghttp2::asio_http2::header_map& headers,
-                const std::string& responseBody);
-
-    // Process error and ends the nghttp2 transaction
-    void processError(std::pair<int, const std::string> error,
-                      const std::string &location = "",
-                      const std::vector<std::string>& allowedMethods = std::vector<std::string>());
-
 public:
-    Stream(const nghttp2::asio_http2::server::request& req,
-           const nghttp2::asio_http2::server::response& res,
-           boost::asio::io_service& io_service,
-           std::shared_ptr<std::stringstream> request, Http2Server *server) : req_(req),
-        res_(res),
-        io_service_(io_service),
-        request_(request),
-        server_(server),
-        closed_(false) {}
-    Stream(const Stream&) = delete;
-    ~Stream() = default;
-    Stream& operator=(const Stream&) = delete;
+    QueueDispatcher(std::string name, size_t thread_cnt);
+    ~QueueDispatcher();
 
-    // Process reception and ends the nghttp2 transaction
-    void process();
+    void dispatch(std::shared_ptr<Stream>);
 
-    // Close indication
-    void close(bool c);
+    // Deleted operations
+    QueueDispatcher(const QueueDispatcher& rhs) = delete;
+    QueueDispatcher& operator=(const QueueDispatcher& rhs) = delete;
+    QueueDispatcher(QueueDispatcher&& rhs) = delete;
+    QueueDispatcher& operator=(QueueDispatcher&& rhs) = delete;
+
+private:
+    std::string name_;
+    std::mutex lock_;
+    std::vector<std::thread> threads_;
+    std::queue<std::shared_ptr<Stream>> q_;
+    std::condition_variable cv_;
+    bool quit_ = false;
+
+    void dispatch_thread_handler(void);
 };
-
 
 }
 }

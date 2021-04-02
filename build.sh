@@ -20,17 +20,20 @@ usage() {
          --builder-image: builds base image from './Dockerfile.build'.
          --project:       builds the project library using builder image.
          --project-image: builds project image from './Dockerfile'.
-         --auto:          builds everything using defaults. For headless mode with no default values,
-                          you may prepend or export asked/environment variables for the corresponding
-                          docker procedure:
+         --auto:          builds everything using defaults.
 
-                             --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
-                             --project:       make_procs, build_type
-                             --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
+         For headless mode you may prepend or export asked/environment variables for the corresponding
+         docker procedure:
 
-                          For example:
+         --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
+         --project:       make_procs, build_type
+         --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
+         --auto:          any of the variables above
 
-                             build_type=Debug $0 --builder-image
+         Example:
+
+         build_type=Debug $0 --builder-image
+         image_tag=test1 $0 --auto
 
 EOF
 }
@@ -110,7 +113,8 @@ build_project_image() {
 }
 
 build_auto() {
-  source <(grep -E '^[a-z_]+__dflt' $0 | sed 's/^/export /' | sed 's/__dflt//') # export defaults to automate
+  # export defaults to automate, but allow possible environment values:
+  source <(grep -E '^[a-z_]+__dflt' $0 | sed 's/^/export /' | sed 's/__dflt//' | sed -e 's/\([a-z_]*\)=\(.*\)/\1=\${\1:-\2}/')
   build_builder_image && build_project && build_project_image
 }
 
