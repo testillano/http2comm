@@ -113,14 +113,14 @@ int Http2Server::serve(const std::string& bind_address,
                        int numberThreads,
                        bool asynchronous)
 {
-    bool is_h2c = key.empty() or cert.empty();
+    bool secure = !key.empty() && !cert.empty();
 
     boost::system::error_code ec;
 
     server_.handle("/", handler());
     server_.num_threads(numberThreads);
 
-    if (not is_h2c)
+    if (secure)
     {
         boost::asio::ssl::context tls(boost::asio::ssl::context::sslv23);
         tls.use_private_key_file(key, boost::asio::ssl::context::pem);

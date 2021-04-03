@@ -22,6 +22,8 @@ usage() {
          --project-image: builds project image from './Dockerfile'.
          --auto:          builds everything using defaults.
 
+         Environment variables:
+
          For headless mode you may prepend or export asked/environment variables for the corresponding
          docker procedure:
 
@@ -30,10 +32,15 @@ usage() {
          --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
          --auto:          any of the variables above
 
-         Example:
+         Other prepend variables:
+
+         DBUILD_XTRA_OPTS: extra options to docker build.
+
+         Examples:
 
          build_type=Debug $0 --builder-image
          image_tag=test1 $0 --auto
+         DBUILD_XTRA_OPTS=--no-cache $0 --builder-image
 
 EOF
 }
@@ -73,7 +80,7 @@ build_builder_image() {
 
   set -x
   rm -f CMakeCache.txt
-  docker build --rm ${bargs} -f Dockerfile.build -t testillano/http2comm_builder:${image_tag} . || return 1
+  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -f Dockerfile.build -t testillano/http2comm_builder:${image_tag} . || return 1
   set +x
 }
 
@@ -108,7 +115,7 @@ build_project_image() {
 
   set -x
   rm -f CMakeCache.txt
-  docker build --rm ${bargs} -t testillano/http2comm:${image_tag} . || return 1
+  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -t testillano/http2comm:${image_tag} . || return 1
   set +x
 }
 
