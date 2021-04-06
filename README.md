@@ -1,4 +1,4 @@
-# C++ HTTP/2 wrapper library - WORK IN PROGRESS
+# C++ HTTP/2 wrapper library - WORK IN PROGRESS (client part)
 
 This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2).
 It offers a quick way to instantiate a client or server and define their virtual methods to
