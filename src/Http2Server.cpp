@@ -49,6 +49,7 @@ SOFTWARE.
 #include <ert/http2comm/URLFunctions.hpp>
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/Http.hpp>
+#include <ert/http2comm/ResponseHeader.hpp>
 
 
 namespace ert
@@ -64,6 +65,34 @@ Http2Server::Http2Server(const std::string& name, size_t workerThreads): name_(n
 Http2Server::~Http2Server() {
     delete queue_dispatcher_;
 }
+
+void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
+                               const std::string& requestBody,
+                               unsigned int& statusCode,
+                               nghttp2::asio_http2::header_map& headers,
+                               std::string& responseBody,
+                               const std::pair<int, const std::string>& error,
+                               const std::string &location,
+                               const std::vector<std::string>& allowedMethods)
+{
+    statusCode = error.first;
+    responseBody = "{}";
+
+    std::string s_errorCause = "<none>";
+    if (error.second != "")
+    {
+        s_errorCause = error.second;
+        responseBody = "{\"cause\":\"" + (s_errorCause + "\"}");
+    }
+
+    ert::tracing::Logger::error(ert::tracing::Logger::asString(
+                                    "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
+                                    req.uri().path.c_str(), statusCode, s_errorCause.c_str()), ERT_FILE_LOCATION);
+
+    ResponseHeader responseHeader(getApiVersion(), location, allowedMethods);
+    headers = responseHeader.getResponseHeader(responseBody.size(), statusCode);
+}
+
 
 void Http2Server::launchWorker(std::shared_ptr<Stream> stream)
 {

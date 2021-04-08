@@ -142,7 +142,7 @@ public:
     virtual bool checkHeaders(const nghttp2::asio_http2::server::request& req) = 0;
 
     /**
-    * Virtual reception callback
+    * Virtual reception callback. Implementation is mandatory.
     *
     * @param req nghttp2-asio request structure.
     * @param requestBody request body received.
@@ -155,6 +155,32 @@ public:
                          unsigned int& statusCode,
                          nghttp2::asio_http2::header_map& headers,
                          std::string& responseBody) = 0;
+
+    /**
+    * Virtual error reception callback.
+    * Default implementation consider this json response body:
+    * <pre>
+    * { "cause": "<error cause>" }
+    * </pre>
+    *
+    * @param req nghttp2-asio request structure.
+    * @param requestBody request body received.
+    * @param statusCode response status code to be filled by reference.
+    * @param headers reponse headers to be filled by reference.
+    * @param responseBody response body to be filled by reference.
+    * @param error error pair given by tuple code/description, i.e.: <415,'UNSUPPORTED_MEDIA_TYPE'>.
+    * If no description provided, empty json document ({}) is sent in the default implementation.
+    * @param location location header content. Empty by default.
+    * @param allowedMethods allowed methods vector given by server implementation. Empty by default.
+    */
+    virtual void receiveError(const nghttp2::asio_http2::server::request& req,
+                              const std::string& requestBody,
+                              unsigned int& statusCode,
+                              nghttp2::asio_http2::header_map& headers,
+                              std::string& responseBody,
+                              const std::pair<int, const std::string>& error,
+                              const std::string &location = "",
+                              const std::vector<std::string>& allowedMethods = std::vector<std::string>());
 
     // Default error handler
     //virtual nghttp2::asio_http2::server::request_cb errorHandler();

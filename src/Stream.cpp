@@ -48,46 +48,26 @@ SOFTWARE.
 #include <ert/http2comm/Http.hpp>
 #include <ert/http2comm/Http2Server.hpp>
 #include <ert/http2comm/URLFunctions.hpp>
-#include <ert/http2comm/ResponseHeader.hpp>
 
 namespace ert
 {
 namespace http2comm
 {
 
-void Stream::processError(std::pair<int, const std::string> error, const std::string &location, const std::vector<std::string>& allowedMethods)
-{
-    int code = error.first;
-    std::string s_errorCause = "<none>";
-    std::string j_errorCause = "{}";
-
-    if (error.second != "")
-    {
-        s_errorCause = error.second;
-        j_errorCause = "{\"cause\":\"" + (s_errorCause + "\"}");
-    }
-
-    ert::tracing::Logger::error(ert::tracing::Logger::asString(
-                                    "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
-                                    req_.uri().path.c_str(), code, s_errorCause.c_str()), ERT_FILE_LOCATION);
-
-    ResponseHeader responseHeader(server_->getApiVersion(), location, allowedMethods);
-
-    // commit results
-    commit(code, responseHeader.getResponseHeader(j_errorCause.size(), code), j_errorCause);
-}
-
 void Stream::process()
 {
     std::vector<std::string> allowedMethods;
+    unsigned int statusCode;
+    auto headers = nghttp2::asio_http2::header_map();
+    std::string responseBody;
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
-        processError(ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
+        server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
     }
     else if (!server_->checkMethodIsImplemented(req_))
     {
-        processError(ert::http2comm::METHOD_NOT_IMPLEMENTED);
+        server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_IMPLEMENTED);
     }
     else
     {
@@ -95,29 +75,23 @@ void Stream::process()
         {
             std::string apiPath = server_->getApiPath();
 
-            if (apiPath != "")
+            if (apiPath != "" && !ert::http2comm::URLFunctions::matchPrefix(req_.uri().path, apiPath))
             {
-                if (!ert::http2comm::URLFunctions::matchPrefix(req_.uri().path, apiPath))
-                {
-                    processError(ert::http2comm::WRONG_API_NAME_OR_VERSION);
-                    return;
-                }
+                server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::WRONG_API_NAME_OR_VERSION);
             }
-
-            unsigned int statusCode;
-            auto headers = nghttp2::asio_http2::header_map();
-            std::string responseBody;
-
-            server_->receive(req_, request_->str(), statusCode, headers, responseBody);
-
-            commit(statusCode, headers, responseBody);
+            else
+            {
+                server_->receive(req_, request_->str(), statusCode, headers, responseBody);
+            }
         }
         else
         {
-            processError(ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
+            server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
         }
     }
 
+    // Commit transaction:
+    commit(statusCode, headers, responseBody);
 }
 
 void Stream::commit(unsigned int statusCode,

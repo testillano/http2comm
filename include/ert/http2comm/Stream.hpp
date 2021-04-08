@@ -86,11 +86,6 @@ class Stream : public std::enable_shared_from_this<Stream>
                 const nghttp2::asio_http2::header_map& headers,
                 const std::string& responseBody);
 
-    // Process error and ends the nghttp2 transaction
-    void processError(std::pair<int, const std::string> error,
-                      const std::string &location = "",
-                      const std::vector<std::string>& allowedMethods = std::vector<std::string>());
-
 public:
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
