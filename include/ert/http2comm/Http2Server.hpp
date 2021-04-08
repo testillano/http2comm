@@ -100,11 +100,11 @@ public:
     // getters
 
     /**
-    * Gets the API path (<name>/<version>)
+    * Gets the API path (/<name>/<version>)
     */
     std::string getApiPath() const
     {
-        return (api_name_ + "/" + api_version_);
+        return ("/" + api_name_ + "/" + api_version_);
     }
 
     /**
