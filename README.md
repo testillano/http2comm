@@ -1,3 +1,5 @@
+[![Build docker image and publish to Docker Hub](https://github.com/testillano/http2comm/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/testillano/http2comm/actions/workflows/docker-publish.yml)
+
 # C++ HTTP/2 wrapper library - WORK IN PROGRESS (client part)
 
 This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2).
