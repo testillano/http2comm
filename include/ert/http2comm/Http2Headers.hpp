@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -37,66 +37,70 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <ert/http2comm/ResponseHeader.hpp>
+#pragma once
 
+#include <string>
+#include <vector>
+
+#include <nghttp2/asio_http2_server.h>
 
 namespace ert
 {
 namespace http2comm
 {
 
-ResponseHeader::ResponseHeader(const std::string& version,
-                               const std::string& location,
-                               const std::vector<std::string>& allowedMethods)
+class Http2Headers
 {
-    version_ = version;
-    location_ = location;
-    allowed_methods_ = allowedMethods;
+    nghttp2::asio_http2::header_map headers_{};
+
+public:
+    Http2Headers() {};
+
+    // setters
+
+    /**
+    * Adds version header
+    */
+    void addVersion(const std::string& value, const std::string& header = "x-version");
+
+    /**
+    * Adds location header
+    */
+    void addLocation(const std::string& value, const std::string& header = "location");
+
+    /**
+    * Adds allow header
+    */
+    void addAllowedMethods(const std::vector<std::string>& value, const std::string& header = "Allow");
+
+    /**
+    * Adds content-length header
+    */
+    void addContentLength(size_t value, const std::string& header = "content-length");
+
+    /**
+    * Adds content-type header
+    */
+    void addContentType(const std::string& value, const std::string& header = "content-type");
+
+    /**
+    * Generic method to add a header
+    * Added value must be non-empty to be added (internally checked).
+    *
+    * @param hKey header field name, i.e. 'content-type'
+    * @param hVal header value
+    * @param sensitiveInformation If 'true' the header is not indexed by HPACK (but still huffman-encoded)
+    */
+    void emplace(const std::string& hKey, const std::string& hVal, bool sensitiveInformation = false);
+
+    // getters
+
+    /**
+    * Gets current built header map
+    */
+    const nghttp2::asio_http2::header_map& getHeaders() const;
+};
+
+}
 }
 
-
-nghttp2::asio_http2::header_map
-ResponseHeader::getResponseHeader(size_t contentLength, unsigned int status)
-{
-    std::string contentType = ((status >= 200)
-                               && (status < 300)) ? "application/json" :
-                              "application/problem+json";
-
-    auto headers = nghttp2::asio_http2::header_map();
-
-    if (version_.size() != 0)
-    {
-        headers.emplace("x-version", nghttp2::asio_http2::header_value{version_});
-    }
-
-    if (location_.size() != 0)
-    {
-        headers.emplace("location", nghttp2::asio_http2::header_value{location_, false /* non sensitive */});
-    }
-
-    if (contentLength != 0)
-    {
-        headers.emplace("content-type", nghttp2::asio_http2::header_value{contentType});
-    }
-
-    headers.emplace("content-length", nghttp2::asio_http2::header_value{std::to_string(contentLength)});
-
-    if (allowed_methods_.empty() != true)
-    {
-        std::string allowedSerialized = allowed_methods_[0];
-
-        for (auto method = allowed_methods_.begin() + 1;
-                method != allowed_methods_.end();
-                method++)
-        {
-            allowedSerialized = allowedSerialized + ", " + *method;
-        }
-
-        headers.emplace("Allow", nghttp2::asio_http2::header_value{allowedSerialized});
-    }
-
-    return headers;
-}
-
-}
-}

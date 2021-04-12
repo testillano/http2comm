@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -40,8 +40,8 @@ SOFTWARE.
 #include <string>
 #include <thread>
 #include <chrono>
-#include <iostream>
 #include <sstream>
+#include <iostream>
 
 #include <ert/tracing/Logger.hpp>
 
@@ -49,7 +49,7 @@ SOFTWARE.
 #include <ert/http2comm/URLFunctions.hpp>
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/Http.hpp>
-#include <ert/http2comm/ResponseHeader.hpp>
+#include <ert/http2comm/Http2Headers.hpp>
 
 
 namespace ert
@@ -89,8 +89,14 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
                                     "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
                                     req.uri().path.c_str(), statusCode, s_errorCause.c_str()), ERT_FILE_LOCATION);
 
-    ResponseHeader responseHeader(getApiVersion(), location, allowedMethods);
-    headers = responseHeader.getResponseHeader(responseBody.size(), statusCode);
+    // Headers:
+    Http2Headers hdrs;
+    hdrs.addVersion(getApiVersion());
+    hdrs.addLocation(location);
+    hdrs.addAllowedMethods(allowedMethods);
+    hdrs.addContentLength(responseBody.size());
+    hdrs.addContentType(((statusCode >= 200) && (statusCode < 300)) ? "application/json" : "application/problem+json");
+    headers = hdrs.getHeaders();
 }
 
 

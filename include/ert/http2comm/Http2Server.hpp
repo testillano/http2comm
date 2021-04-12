@@ -37,8 +37,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef ERT_HTTP2COMM_HTTP2SERVER_H_
-#define ERT_HTTP2COMM_HTTP2SERVER_H_
+#pragma once
 
 #include <string>
 #include <memory>
@@ -46,7 +45,7 @@ SOFTWARE.
 #include <nghttp2/asio_http2_server.h>
 
 #include <ert/http2comm/Stream.hpp>
-#include <ert/http2comm/ResponseHeader.hpp>
+#include <ert/http2comm/Http2Headers.hpp>
 #include <ert/http2comm/QueueDispatcher.hpp>
 
 namespace ert
@@ -211,5 +210,3 @@ public:
 }
 }
 
-
-#endif

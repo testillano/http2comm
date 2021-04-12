@@ -6,6 +6,8 @@ This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp
 It offers a quick way to instantiate a client or server and define their virtual methods to
 process the requests and answers properly.
 
+You could check an example of use at [h2agent](https://github.com/testillano/h2agent) project, where the server side capability is used to mock an HTTP/2 service within a testing ecosystem.
+
 ## Project image
 
 This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`:

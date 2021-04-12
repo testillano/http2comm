@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -37,36 +37,59 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef ERT_HTTP2COMM_RESPONSEHEADER_H_
-#define ERT_HTTP2COMM_RESPONSEHEADER_H_
+#include <ert/http2comm/Http2Headers.hpp>
+#include <iostream>
 
-#include <string>
-#include <vector>
-
-#include <nghttp2/asio_http2_server.h>
 
 namespace ert
 {
 namespace http2comm
 {
 
-class ResponseHeader
+const nghttp2::asio_http2::header_map& Http2Headers::getHeaders() const {
+    return headers_;
+}
+
+void Http2Headers::emplace(const std::string& hKey, const std::string& hVal, bool sensitiveInformation)
 {
-private:
-    std::string version_ = "";
-    std::string location_ = "";
-    std::vector<std::string> allowed_methods_ = std::vector<std::string>();
+    if (!hVal.empty()) {
+        headers_.emplace(hKey, nghttp2::asio_http2::header_value{hVal, sensitiveInformation});
+    }
+}
 
-public:
-    ResponseHeader(const std::string& version = "",
-                   const std::string& location = "",
-                   const std::vector<std::string>& allowedMethods = std::vector<std::string>());
+void Http2Headers::addVersion(const std::string& value, const std::string& header)
+{
+    emplace(header, value);
+}
 
-    virtual nghttp2::asio_http2::header_map getResponseHeader(
-        size_t contentLength, unsigned int status);
-};
+void Http2Headers::addLocation(const std::string& value, const std::string& header)
+{
+    emplace(header, value);
+}
+
+void Http2Headers::addAllowedMethods(const std::vector<std::string>& value, const std::string& header)
+{
+    if (value.empty()) return;
+
+    std::string serialized = value[0];
+    for (auto method = value.begin() + 1; method != value.end(); method++)
+    {
+        serialized = serialized + ", " + *method;
+    }
+
+    emplace(header, serialized);
+}
+
+void Http2Headers::addContentLength(size_t value, const std::string& header)
+{
+    emplace(header, std::to_string(value));
+}
+
+void Http2Headers::addContentType(const std::string& value, const std::string& header)
+{
+    emplace(header, value);
+}
 
 }
 }
 
-#endif

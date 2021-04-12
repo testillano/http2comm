@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -37,8 +37,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef ERT_HTTP2COMM_HTTP_H_
-#define ERT_HTTP2COMM_HTTP_H_
+#pragma once
 
 #include <string>
 
@@ -102,4 +101,3 @@ const std::pair<int, std::string> METHOD_NOT_IMPLEMENTED (
 }
 }
 
-#endif

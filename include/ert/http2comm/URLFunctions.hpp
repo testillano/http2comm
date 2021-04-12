@@ -37,8 +37,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef ERT_HTTP2COMM_URLFUNCTIONS_H_
-#define ERT_HTTP2COMM_URLFUNCTIONS_H_
+#pragma once
 
 #include <string>
 
@@ -74,4 +73,3 @@ public:
 }
 }
 
-#endif
