@@ -1,7 +1,7 @@
 # C++ HTTP/2 wrapper library - WORK IN PROGRESS (client part)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://codedocs.xyz/testillano/coffee.svg)](https://codedocs.xyz/testillano/http2comm/index.html)
+[![Documentation](https://codedocs.xyz/testillano/http2comm.svg)](https://codedocs.xyz/testillano/http2comm/index.html)
 [![Ask Me Anything !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/testillano)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/testillano/http2comm/graphs/commit-activity)
 [![Build docker image and publish to Docker Hub](https://github.com/testillano/http2comm/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/testillano/http2comm/actions/workflows/docker-publish.yml)
