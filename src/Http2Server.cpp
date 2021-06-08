@@ -66,6 +66,22 @@ Http2Server::~Http2Server() {
     delete queue_dispatcher_;
 }
 
+std::string Http2Server::getApiPath() const
+{
+    std::string result{};
+    if (api_name_.empty()) return result;
+
+    result += "/";
+    result += api_name_;
+
+    if (api_version_.empty()) return result;
+
+    result += "/";
+    result += api_version_;
+
+    return result;
+}
+
 void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
                                const std::string& requestBody,
                                unsigned int& statusCode,

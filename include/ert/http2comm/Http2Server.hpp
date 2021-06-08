@@ -101,10 +101,7 @@ public:
     /**
     * Gets the API path (/<name>/<version>)
     */
-    std::string getApiPath() const
-    {
-        return ("/" + api_name_ + "/" + api_version_);
-    }
+    std::string getApiPath() const;
 
     /**
     * Gets the API name
