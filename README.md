@@ -1,4 +1,4 @@
-# C++ HTTP/2 wrapper library - WORK IN PROGRESS (client part)
+# C++ HTTP/2 wrapper library - WORK IN PROGRESS FOR CLIENT
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://codedocs.xyz/testillano/http2comm.svg)](https://codedocs.xyz/testillano/http2comm/index.html)
