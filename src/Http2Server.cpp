@@ -42,6 +42,7 @@ SOFTWARE.
 #include <chrono>
 #include <sstream>
 #include <iostream>
+#include <boost/exception/diagnostic_information.hpp>
 
 #include <ert/tracing/Logger.hpp>
 
@@ -173,11 +174,32 @@ int Http2Server::serve(const std::string& bind_address,
 
     if (secure)
     {
-        boost::asio::ssl::context tls(boost::asio::ssl::context::sslv23);
-        tls.use_private_key_file(key, boost::asio::ssl::context::pem);
-        tls.use_certificate_chain_file(cert);
-        nghttp2::asio_http2::server::configure_tls_context_easy(ec, tls);
-        server_.listen_and_serve(ec, tls, bind_address, listen_port, asynchronous);
+        try {
+            boost::asio::ssl::context tls(boost::asio::ssl::context::sslv23);
+
+            if (!server_key_password_.empty()) {
+              tls.set_password_callback ([this](std::size_t, boost::asio::ssl::context_base::password_purpose) {
+		                                    return server_key_password_;
+	                                      });
+            }
+
+            tls.use_private_key_file(key, boost::asio::ssl::context::pem);
+            tls.use_certificate_chain_file(cert);
+            nghttp2::asio_http2::server::configure_tls_context_easy(ec, tls);
+            server_.listen_and_serve(ec, tls, bind_address, listen_port, asynchronous);
+        }
+        catch (const boost::exception& e)
+        {
+            std::cerr << boost::diagnostic_information(e) << '\n';
+            stop();
+            return EXIT_FAILURE;
+        }
+        catch (...) {
+            std::cerr << "Server initialization failure in " << name_ << '\n';
+            stop();
+            return EXIT_FAILURE;
+        }
+
     }
     else
     {

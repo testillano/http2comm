@@ -55,6 +55,7 @@ namespace http2comm
 
 class Http2Server
 {
+    std::string server_key_password_{};
     std::string name_{};
     std::string api_name_{};
     std::string api_version_{};
@@ -79,6 +80,14 @@ public:
     ~Http2Server();
 
     // setters
+
+    /**
+    * Sets the server key password to use with TLS/SSL
+    */
+    void setServerKeyPassword(const std::string& password)
+    {
+        server_key_password_ = password;
+    }
 
     /**
     * Sets the API name
