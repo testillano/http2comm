@@ -8,7 +8,7 @@ WORKDIR /code/build
 
 ARG make_procs=4
 ARG build_type=Release
-ARG ert_logger_ver=v1.0.8
+ARG ert_logger_ver=v1.0.9
 
 RUN apk add doxygen graphviz
 

@@ -7,7 +7,7 @@ image_tag__dflt=latest
 base_tag__dflt=latest
 make_procs__dflt=$(grep processor /proc/cpuinfo -c)
 build_type__dflt=Release
-ert_logger_ver__dflt=v1.0.8
+ert_logger_ver__dflt=v1.0.9
 
 #############
 # FUNCTIONS #
