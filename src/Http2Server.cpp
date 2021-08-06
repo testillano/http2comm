@@ -58,9 +58,9 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads): name_(name) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService) {
 
-    queue_dispatcher_ = ((workerThreads != -1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr);
+    queue_dispatcher_ = new QueueDispatcher(name + "_queueDispatcher", workerThreads);
 }
 
 Http2Server::~Http2Server() {
@@ -116,16 +116,6 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
     headers = hdrs.getHeaders();
 }
 
-
-void Http2Server::launchWorker(std::shared_ptr<Stream> stream)
-{
-    auto thread = std::thread([this, stream]()
-    {
-        stream->process();
-    });
-    thread.detach();
-}
-
 nghttp2::asio_http2::server::request_cb Http2Server::handler()
 {
     return [&](const nghttp2::asio_http2::server::request & req,
@@ -146,12 +136,7 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
                     stream->close(true);
                 });
 
-                if (queue_dispatcher_) {
-                    queue_dispatcher_->dispatch(stream); // pre initialized threads
-                }
-                else {
-                    launchWorker(stream); // dynamic threads creation
-                }
+                queue_dispatcher_->dispatch(stream);
             }
         });
     };
@@ -178,9 +163,9 @@ int Http2Server::serve(const std::string& bind_address,
             boost::asio::ssl::context tls(boost::asio::ssl::context::sslv23);
 
             if (!server_key_password_.empty()) {
-              tls.set_password_callback ([this](std::size_t, boost::asio::ssl::context_base::password_purpose) {
-		                                    return server_key_password_;
-	                                      });
+                tls.set_password_callback ([this](std::size_t, boost::asio::ssl::context_base::password_purpose) {
+                    return server_key_password_;
+                });
             }
 
             tls.use_private_key_file(key, boost::asio::ssl::context::pem);

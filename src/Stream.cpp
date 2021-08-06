@@ -37,10 +37,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <mutex>
 #include <chrono> // temporary
 
 #include <nghttp2/asio_http2_server.h>
+
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <ert/tracing/Logger.hpp>
 
@@ -60,6 +61,10 @@ void Stream::process()
     unsigned int statusCode;
     auto headers = nghttp2::asio_http2::header_map();
     std::string responseBody;
+    unsigned int responseDelayMs{};
+
+    // Initial timestamp for delay correction
+    auto initTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
@@ -81,7 +86,7 @@ void Stream::process()
             }
             else
             {
-                server_->receive(req_, request_->str(), statusCode, headers, responseBody);
+                server_->receive(req_, request_->str(), statusCode, headers, responseBody, responseDelayMs);
             }
         }
         else
@@ -90,31 +95,74 @@ void Stream::process()
         }
     }
 
+    // Optional delay:
+    std::shared_ptr<boost::asio::deadline_timer> timer = nullptr;
+    if (server_->getTimersIoService()) {
+        if (responseDelayMs != 0) {
+            LOGDEBUG(
+                std::string msg = ert::tracing::Logger::asString("Waiting for planned delay: %d ms", responseDelayMs);
+                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+            );
+
+            // Final timestamp for delay correction
+            // This correction could be noticeable with huge transformations, but this is not usual. As normally, request processingshould be under 1 ms, this milliseconds-delta correction used to be insignificant
+            auto finalTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            auto deltaCorrection = (finalTimestamp - initTimestamp)*1.2; // assume that the rest of processing (send reponse) will take the 20% of delta
+            responseDelayMs -= deltaCorrection;
+            LOGDEBUG(
+            if (deltaCorrection > 0) {
+            std::string msg = ert::tracing::Logger::asString("Corrected delay: %d ms (processing lapse was: %d ms)", responseDelayMs, deltaCorrection);
+                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+            }
+            );
+
+            if (responseDelayMs > 0) {
+                timer = std::make_shared<boost::asio::deadline_timer>(*(server_->getTimersIoService()), boost::posix_time::milliseconds(responseDelayMs));
+            }
+        }
+    }
+    else {
+        LOGWARNING(
+            if(responseDelayMs != 0)
+            ert::tracing::Logger::warning("You must provide an 'io service for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION);
+        );
+    }
+
     // Commit transaction:
-    commit(statusCode, headers, responseBody);
+    commit(statusCode, headers, responseBody, timer);
 }
 
 void Stream::commit(unsigned int statusCode,
                     const nghttp2::asio_http2::header_map& headers,
-                    const std::string& responseBody)
+                    const std::string& responseBody,
+                    std::shared_ptr<boost::asio::deadline_timer> timer)
 {
     auto self = shared_from_this();
-    io_service_.post([self, statusCode, headers, responseBody]()
-    {
-        std::lock_guard<std::mutex> lg(self->mutex_);
 
-        if (self->closed_)
+    if (timer) {
+        // timer is passed to the lambda to keep it alive (shared pointer not destroyed when it is out of scope):
+        timer->async_wait([self, timer, statusCode, headers, responseBody] (const boost::system::error_code&) {
+            self->commit(statusCode, headers, responseBody, nullptr);
+        });
+    }
+    else {
+        io_service_.post([self, statusCode, headers, responseBody]()
         {
-            return;
-        }
+            std::lock_guard<std::mutex> lg(self->mutex_);
 
-        // WORKER THREAD PROCESSING CANNOT BE DONE HERE
-        // (nghttp2 pool must be free), SO, IT WILL BE
-        // DONE BEFORE commit()
+            if (self->closed_)
+            {
+                return;
+            }
 
-        self->res_.write_head(statusCode, headers);
-        self->res_.end(responseBody);
-    });
+            // WORKER THREAD PROCESSING CANNOT BE DONE HERE
+            // (nghttp2 pool must be free), SO, IT WILL BE
+            // DONE BEFORE commit()
+
+            self->res_.write_head(statusCode, headers);
+            self->res_.end(responseBody);
+        });
+    }
 }
 
 void Stream::close(bool c)

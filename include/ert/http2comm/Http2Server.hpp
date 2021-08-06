@@ -42,6 +42,8 @@ SOFTWARE.
 #include <string>
 #include <memory>
 
+#include <boost/asio.hpp>
+
 #include <nghttp2/asio_http2_server.h>
 
 #include <ert/http2comm/Stream.hpp>
@@ -60,9 +62,9 @@ class Http2Server
     std::string api_name_{};
     std::string api_version_{};
     QueueDispatcher *queue_dispatcher_;
+    boost::asio::io_service *timers_io_service_;
 
     nghttp2::asio_http2::server::request_cb handler();
-    void launchWorker(std::shared_ptr<Stream> stream);
 
 protected:
 
@@ -74,9 +76,10 @@ public:
     *  Class constructor
     *
     *  @param name Server name.
-    *  @param workerThreads number of worker threads (dynamic creation by default).
+    *  @param workerThreads number of worker threads.
+    *  @param timerIoService Optional io service to manage response delays
     */
-    Http2Server(const std::string& name, size_t workerThreads = -1);
+    Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timerIoService = nullptr);
     ~Http2Server();
 
     // setters
@@ -154,12 +157,14 @@ public:
     * @param statusCode response status code to be filled by reference.
     * @param headers reponse headers to be filled by reference.
     * @param responseBody response body to be filled by reference.
+    * @param responseDelayMs reponse delay in milliseconds to be filled by reference.
     */
     virtual void receive(const nghttp2::asio_http2::server::request& req,
                          const std::string& requestBody,
                          unsigned int& statusCode,
                          nghttp2::asio_http2::header_map& headers,
-                         std::string& responseBody) = 0;
+                         std::string& responseBody,
+                         unsigned int &responseDelayMs) = 0;
 
     /**
     * Virtual error reception callback.
@@ -206,6 +211,13 @@ public:
               const std::string& cert,
               int numberThreads,
               bool asynchronous = false);
+
+    /**
+    * Gets the timers io service used to manage response delays
+    */
+    boost::asio::io_service *getTimersIoService() const {
+        return timers_io_service_;
+    }
 
     /**
     * Server stop

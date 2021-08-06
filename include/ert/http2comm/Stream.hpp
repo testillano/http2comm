@@ -43,6 +43,8 @@ SOFTWARE.
 #include <sstream>
 #include <memory>
 
+#include <boost/asio.hpp>
+
 #include <nghttp2/asio_http2_server.h>
 
 
@@ -83,7 +85,8 @@ class Stream : public std::enable_shared_from_this<Stream>
     // Completes the nghttp2 transaction (res.end())
     void commit(unsigned int statusCode,
                 const nghttp2::asio_http2::header_map& headers,
-                const std::string& responseBody);
+                const std::string& responseBody,
+                std::shared_ptr<boost::asio::deadline_timer> timer);
 
 public:
     Stream(const nghttp2::asio_http2::server::request& req,
