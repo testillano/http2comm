@@ -40,16 +40,16 @@ usage() {
 
          build_type=Debug $0 --builder-image
          image_tag=test1 $0 --auto
-         DBUILD_XTRA_OPTS=--no-cache $0 --builder-image
+         DBUILD_XTRA_OPTS=--no-cache $0 --auto
 
 EOF
 }
 
-# $1: variable by reference; $2: default value
+# $1: variable by reference
 _read() {
   local -n varname=$1
-  local default=$2
 
+  local default=$(eval echo \$$1__dflt)
   local s_default="<null>"
   [ -n "${default}" ] && s_default="${default}"
   echo "Input '$1' value [${s_default}]:"
@@ -67,11 +67,11 @@ build_builder_image() {
   echo
   echo "=== Build http2comm_builder image ==="
   echo
-  _read image_tag "${image_tag__dflt}"
-  _read base_tag "${base_tag__dflt}"
-  _read make_procs "${make_procs__dflt}"
-  _read build_type "${build_type__dflt}"
-  _read ert_logger_ver "${ert_logger_ver__dflt}"
+  _read image_tag
+  _read base_tag
+  _read make_procs
+  _read build_type
+  _read ert_logger_ver
 
   bargs="--build-arg base_tag=${base_tag}"
   bargs+=" --build-arg make_procs=${make_procs}"
@@ -89,8 +89,8 @@ build_project() {
   echo
   echo "=== Build http2comm project ==="
   echo
-  _read make_procs "${make_procs__dflt}"
-  _read build_type "${build_type__dflt}"
+  _read make_procs
+  _read build_type
 
   envs="-e MAKE_PROCS=${make_procs} -e BUILD_TYPE=${build_type}"
 
@@ -107,10 +107,10 @@ build_project_image() {
   echo
   echo "=== Build http2comm image ==="
   echo
-  _read image_tag "${image_tag__dflt}"
-  _read base_tag "${base_tag__dflt}"
-  _read make_procs "${make_procs__dflt}"
-  _read build_type "${build_type__dflt}"
+  _read image_tag
+  _read base_tag
+  _read make_procs
+  _read build_type
 
   bargs="--build-arg base_tag=${base_tag}"
   bargs+=" --build-arg make_procs=${make_procs}"
