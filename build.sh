@@ -28,7 +28,7 @@ usage() {
          docker procedure:
 
          --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
-         --project:       make_procs, build_type
+         --project:       make_procs, build_type, base_tag (http2comm_builder)
          --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
          --auto:          any of the variables above
 
@@ -89,6 +89,7 @@ build_project() {
   echo
   echo "=== Build http2comm project ==="
   echo
+  _read base_tag
   _read make_procs
   _read build_type
 
@@ -97,9 +98,9 @@ build_project() {
   set -x
   rm -f CMakeCache.txt
   # shellcheck disable=SC2086
-  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder || return 1
+  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder:"${base_tag}" || return 1
   # shellcheck disable=SC2086
-  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder "" doc || return 1
+  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder:"${base_tag}" "" doc || return 1
   set +x
 }
 
