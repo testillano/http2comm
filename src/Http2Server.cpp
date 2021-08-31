@@ -172,6 +172,7 @@ int Http2Server::serve(const std::string& bind_address,
             tls.use_certificate_chain_file(cert);
             nghttp2::asio_http2::server::configure_tls_context_easy(ec, tls);
             server_.listen_and_serve(ec, tls, bind_address, listen_port, asynchronous);
+            if (asynchronous) server_.join();
         }
         catch (const boost::exception& e)
         {

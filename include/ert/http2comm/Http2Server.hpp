@@ -61,8 +61,8 @@ class Http2Server
     std::string name_{};
     std::string api_name_{};
     std::string api_version_{};
-    QueueDispatcher *queue_dispatcher_;
     boost::asio::io_service *timers_io_service_;
+    QueueDispatcher *queue_dispatcher_;
 
     nghttp2::asio_http2::server::request_cb handler();
 
