@@ -53,9 +53,16 @@ public:
     /**
      * Percent-encoder for URL provided.
      *
-     * @param rawUrl URL to be encoded.
+     * @param decodedUrl URL to be encoded.
      */
-    static std::string encode(const std::string& rawUrl);
+    static std::string encode(const std::string& decodedUrl);
+
+    /**
+     * Percent-decoder for URL provided.
+     *
+     * @param encodedUrl URL to be encoded.
+     */
+    static std::string decode(const std::string& encodedUrl);
 
     /**
     * Normalize URL path and provided path prefix and then

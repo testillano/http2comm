@@ -63,9 +63,38 @@ namespace ert
 {
 namespace http2comm
 {
-std::string URLFunctions::encode(const std::string& rawUrl)
+std::string URLFunctions::encode(const std::string& decodedUrl)
 {
-    return nghttp2::util::percent_encode(rawUrl);
+    return nghttp2::util::percent_encode(decodedUrl);
+}
+
+std::string URLFunctions::decode(const std::string& encodedUrl)
+{
+    std::string result;
+    result.reserve(encodedUrl.size());
+
+    for (std::size_t i = 0; i < encodedUrl.size(); ++i)
+    {
+        auto ch = encodedUrl[i];
+
+        if (ch == '%' && (i + 2) < encodedUrl.size())
+        {
+            auto hex = encodedUrl.substr(i + 1, 2);
+            auto dec = static_cast<char>(std::strtol(hex.c_str(), nullptr, 16));
+            result.push_back(dec);
+            i += 2;
+        }
+        else if (ch == '+')
+        {
+            result.push_back(' ');
+        }
+        else
+        {
+            result.push_back(ch);
+        }
+    }
+
+    return result;
 }
 
 bool URLFunctions::matchPrefix(const std::string& urlPath,
