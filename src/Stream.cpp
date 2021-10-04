@@ -37,8 +37,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <chrono> // temporary
-
 #include <nghttp2/asio_http2_server.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -63,8 +61,7 @@ void Stream::process()
     std::string responseBody;
     unsigned int responseDelayMs{};
 
-    // Initial timestamp for delay correction
-    auto initTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    reception_us_ = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
@@ -95,47 +92,41 @@ void Stream::process()
         }
     }
 
-    // Optional delay:
-    std::shared_ptr<boost::asio::deadline_timer> timer = nullptr;
-    if (server_->getTimersIoService()) {
-        if (responseDelayMs != 0) {
+    // Optional reponse delay
+    boost::asio::deadline_timer *timer = nullptr;
+    if (responseDelayMs != 0) { // optional delay:
+        if (server_->getTimersIoService()) {
+            auto responseDelayUs = 1000*responseDelayMs;
             LOGDEBUG(
-                std::string msg = ert::tracing::Logger::asString("Waiting for planned delay: %d ms", responseDelayMs);
+                std::string msg = ert::tracing::Logger::asString("Planned delay before response: %d us", responseDelayUs);
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             );
 
-            // Final timestamp for delay correction
-            // This correction could be noticeable with huge transformations, but this is not usual. As normally, request processingshould be under 1 ms, this milliseconds-delta correction used to be insignificant
-            auto finalTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            auto deltaCorrection = (finalTimestamp - initTimestamp)*1.2; // assume that the rest of processing (send reponse) will take the 20% of delta
-            responseDelayMs -= deltaCorrection;
+            // Final timestamp for delay correction: this correction could be noticeable with huge transformations, but this is not usual.
+            auto nowUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            auto delayUsCorrection = (nowUs - reception_us_.count());
+            responseDelayUs -= delayUsCorrection;
             LOGDEBUG(
-            if (deltaCorrection > 0) {
-            std::string msg = ert::tracing::Logger::asString("Corrected delay: %d ms (processing lapse was: %d ms)", responseDelayMs, deltaCorrection);
+            if (delayUsCorrection > 0) {
+            std::string msg = ert::tracing::Logger::asString("Corrected delay: %d us (processing lapse was: %d us)", responseDelayUs, delayUsCorrection);
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             }
             );
 
-            if (responseDelayMs > 0) {
-                timer = std::make_shared<boost::asio::deadline_timer>(*(server_->getTimersIoService()), boost::posix_time::milliseconds(responseDelayMs));
-            }
+            timer = new boost::asio::deadline_timer(*(server_->getTimersIoService()), boost::posix_time::microseconds(responseDelayUs));
+        }
+        else {
+            LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io service for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
         }
     }
-    else {
-        LOGWARNING(
-            if(responseDelayMs != 0)
-            ert::tracing::Logger::warning("You must provide an 'io service for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION);
-        );
-    }
 
-    // Commit transaction:
     commit(statusCode, headers, responseBody, timer);
 }
 
 void Stream::commit(unsigned int statusCode,
                     const nghttp2::asio_http2::header_map& headers,
                     const std::string& responseBody,
-                    std::shared_ptr<boost::asio::deadline_timer> timer)
+                    boost::asio::deadline_timer *timer)
 {
     auto self = shared_from_this();
 
@@ -143,13 +134,44 @@ void Stream::commit(unsigned int statusCode,
         // timer is passed to the lambda to keep it alive (shared pointer not destroyed when it is out of scope):
         timer->async_wait([self, timer, statusCode, headers, responseBody] (const boost::system::error_code&) {
             self->commit(statusCode, headers, responseBody, nullptr);
+            delete timer;
         });
     }
     else {
+        if (server_->metrics_) {
+
+            // histograms
+            auto finalUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            double durationSeconds = (finalUs - reception_us_.count())/1000000.0;
+            server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
+            server_->messages_size_bytes_rx_histogram_->Observe(request_->str().size());
+            server_->messages_size_bytes_tx_histogram_->Observe(responseBody.size());
+
+            // counters
+            if (req_.method() == "POST") {
+                server_->observed_requests_successful_post_counter_->Increment();
+            }
+            else if (req_.method() == "GET") {
+                server_->observed_requests_successful_get_counter_->Increment();
+            }
+            else if (req_.method() == "PUT") {
+                server_->observed_requests_successful_put_counter_->Increment();
+            }
+            else if (req_.method() == "DELETE") {
+                server_->observed_requests_successful_delete_counter_->Increment();
+            }
+            else if (req_.method() == "HEAD") {
+                server_->observed_requests_successful_head_counter_->Increment();
+            }
+            else {
+                server_->observed_requests_successful_other_counter_->Increment();
+            }
+        }
+
+        // Send response
         io_service_.post([self, statusCode, headers, responseBody]()
         {
             std::lock_guard<std::mutex> lg(self->mutex_);
-
             if (self->closed_)
             {
                 return;

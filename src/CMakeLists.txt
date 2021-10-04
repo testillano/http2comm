@@ -14,6 +14,7 @@ target_include_directories(${ERT_HTTP2COMM_TARGET_NAME}
 
 target_link_libraries(${ERT_HTTP2COMM_TARGET_NAME}
         ert_logger
+        ert_metrics
 )
 
 install(TARGETS ${ERT_HTTP2COMM_TARGET_NAME}

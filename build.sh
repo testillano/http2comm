@@ -8,6 +8,10 @@ base_tag__dflt=latest
 make_procs__dflt=$(grep processor /proc/cpuinfo -c)
 build_type__dflt=Release
 ert_logger_ver__dflt=v1.0.9
+jupp0r_prometheuscpp_ver__dflt=v0.13.0
+# 3rd party used by prometheus:
+civetweb_civetweb_ver__dflt=v1.14
+ert_metrics_ver__dflt=v0.0.1
 
 #############
 # FUNCTIONS #
@@ -27,7 +31,7 @@ usage() {
          For headless mode you may prepend or export asked/environment variables for the corresponding
          docker procedure:
 
-         --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver
+         --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver, jupp0r_prometheuscpp_ver, civetweb_civetweb_ver, ert_metrics_ver
          --project:       make_procs, build_type, base_tag (http2comm_builder)
          --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
          --auto:          any of the variables above
@@ -72,11 +76,17 @@ build_builder_image() {
   _read make_procs
   _read build_type
   _read ert_logger_ver
+  _read jupp0r_prometheuscpp_ver
+  _read civetweb_civetweb_ver
+  _read ert_metrics_ver
 
   bargs="--build-arg base_tag=${base_tag}"
   bargs+=" --build-arg make_procs=${make_procs}"
   bargs+=" --build-arg build_type=${build_type}"
   bargs+=" --build-arg ert_logger_ver=${ert_logger_ver}"
+  bargs+=" --build-arg jupp0r_prometheuscpp_ver=${jupp0r_prometheuscpp_ver}"
+  bargs+=" --build-arg civetweb_civetweb_ver=${civetweb_civetweb_ver}"
+  bargs+=" --build-arg ert_metrics_ver=${ert_metrics_ver}"
 
   set -x
   rm -f CMakeCache.txt
@@ -127,7 +137,7 @@ build_project_image() {
 build_auto() {
   # export defaults to automate, but allow possible environment values:
   # shellcheck disable=SC1090
-  source <(grep -E '^[a-z_]+__dflt' "$0" | sed 's/^/export /' | sed 's/__dflt//' | sed -e 's/\([a-z_]*\)=\(.*\)/\1=\${\1:-\2}/')
+  source <(grep -E '^[0a-z_]+__dflt' "$0" | sed 's/^/export /' | sed 's/__dflt//' | sed -e 's/\([0a-z_]*\)=\(.*\)/\1=\${\1:-\2}/')
   build_builder_image && build_project && build_project_image
 }
 

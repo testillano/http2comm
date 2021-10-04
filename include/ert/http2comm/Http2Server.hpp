@@ -50,6 +50,8 @@ SOFTWARE.
 #include <ert/http2comm/Http2Headers.hpp>
 #include <ert/http2comm/QueueDispatcher.hpp>
 
+#include <ert/metrics/Metrics.hpp>
+
 namespace ert
 {
 namespace http2comm
@@ -65,6 +67,26 @@ class Http2Server
     QueueDispatcher *queue_dispatcher_;
 
     nghttp2::asio_http2::server::request_cb handler();
+
+    // metrics:
+    ert::metrics::Metrics *metrics_{};
+
+    ert::metrics::counter_t *observed_requests_successful_post_counter_{};
+    ert::metrics::counter_t *observed_requests_successful_get_counter_{};
+    ert::metrics::counter_t *observed_requests_successful_put_counter_{};
+    ert::metrics::counter_t *observed_requests_successful_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_successful_head_counter_{};
+    ert::metrics::counter_t *observed_requests_successful_other_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_post_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_get_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_put_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_head_counter_{};
+    ert::metrics::counter_t *observed_requests_failed_other_counter_{};
+
+    ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
+    ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
+    ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
 
 protected:
 
@@ -83,6 +105,17 @@ public:
     ~Http2Server();
 
     // setters
+
+    /**
+    * Enable metrics
+    *
+    *  @param metrics Optional metrics object to compute counters and histograms
+    *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
+    *  @param messageSizeBytesHistogramBucketBoundaries Optional bucket boundaries for message size bytes histogram
+    */
+    void enableMetrics(ert::metrics::Metrics *metrics,
+                       const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries = {},
+                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {});
 
     /**
     * Sets the server key password to use with TLS/SSL
@@ -223,6 +256,8 @@ public:
     * Server stop
     */
     int stop();
+
+    friend class Stream;
 };
 
 }

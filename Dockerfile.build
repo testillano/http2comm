@@ -9,6 +9,9 @@ WORKDIR /code/build
 ARG make_procs=4
 ARG build_type=Release
 ARG ert_logger_ver=v1.0.9
+ARG jupp0r_prometheuscpp_ver=v0.13.0
+ARG civetweb_civetweb_ver=v1.14
+ARG ert_metrics_ver=v0.0.1
 
 RUN apk add doxygen graphviz
 
@@ -18,3 +21,23 @@ RUN set -x && \
     cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
+
+# jupp0r prometheus-cpp
+RUN apk add zlib-dev curl-dev
+RUN set -x && \
+    wget https://github.com/jupp0r/prometheus-cpp/archive/refs/tags/${jupp0r_prometheuscpp_ver}.tar.gz && \
+    tar xvf ${jupp0r_prometheuscpp_ver}.tar.gz && cd prometheus-cpp*/3rdparty && \
+    wget https://github.com/civetweb/civetweb/archive/refs/tags/${civetweb_civetweb_ver}.tar.gz && \
+    tar xvf ${civetweb_civetweb_ver}.tar.gz && mv civetweb-*/* civetweb && cd .. && \
+    mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=${build_type} -DENABLE_TESTING=OFF .. && \
+    make -j${make_procs} && make install && \
+    cd .. && rm -rf * && \
+    set +x
+
+# ert_metrics
+RUN set -x && \
+    wget https://github.com/testillano/metrics/archive/${ert_metrics_ver}.tar.gz && tar xvf ${ert_metrics_ver}.tar.gz && cd metrics-*/ && \
+    cmake -DERT_METRICS_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
+    cd .. && rm -rf * && \
+    set +x
+
