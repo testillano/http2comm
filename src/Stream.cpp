@@ -142,29 +142,34 @@ void Stream::commit(unsigned int statusCode,
 
             // histograms
             auto finalUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            double durationSeconds = (finalUs - reception_us_.count())/1000000.0;
+            double durationUs = finalUs - reception_us_.count();
+            double durationSeconds = durationUs/1000000.0;
+            LOGDEBUG(
+                std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
+                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+            );
             server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
             server_->messages_size_bytes_rx_histogram_->Observe(request_->str().size());
             server_->messages_size_bytes_tx_histogram_->Observe(responseBody.size());
 
             // counters
             if (req_.method() == "POST") {
-                server_->observed_requests_successful_post_counter_->Increment();
+                server_->observed_requests_post_counter_->Increment();
             }
             else if (req_.method() == "GET") {
-                server_->observed_requests_successful_get_counter_->Increment();
+                server_->observed_requests_get_counter_->Increment();
             }
             else if (req_.method() == "PUT") {
-                server_->observed_requests_successful_put_counter_->Increment();
+                server_->observed_requests_put_counter_->Increment();
             }
             else if (req_.method() == "DELETE") {
-                server_->observed_requests_successful_delete_counter_->Increment();
+                server_->observed_requests_delete_counter_->Increment();
             }
             else if (req_.method() == "HEAD") {
-                server_->observed_requests_successful_head_counter_->Increment();
+                server_->observed_requests_head_counter_->Increment();
             }
             else {
-                server_->observed_requests_successful_other_counter_->Increment();
+                server_->observed_requests_other_counter_->Increment();
             }
         }
 

@@ -71,18 +71,18 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
 
     if (metrics_) {
         ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
-        observed_requests_successful_post_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "POST"}}));
-        observed_requests_successful_get_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "GET"}}));
-        observed_requests_successful_put_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "PUT"}}));
-        observed_requests_successful_delete_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "DELETE"}}));
-        observed_requests_successful_head_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "HEAD"}}));
-        observed_requests_successful_other_counter_ = &(cf.Add({{"processed", "successful"}, {"method", "other"}}));
-        observed_requests_failed_post_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "POST"}}));
-        observed_requests_failed_get_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "GET"}}));
-        observed_requests_failed_put_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "PUT"}}));
-        observed_requests_failed_delete_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "DELETE"}}));
-        observed_requests_failed_head_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "HEAD"}}));
-        observed_requests_failed_other_counter_ = &(cf.Add({{"processed", "failed"}, {"method", "other"}}));
+        observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
+        observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));
+        observed_requests_put_counter_ = &(cf.Add({{"method", "PUT"}}));
+        observed_requests_delete_counter_ = &(cf.Add({{"method", "DELETE"}}));
+        observed_requests_head_counter_ = &(cf.Add({{"method", "HEAD"}}));
+        observed_requests_other_counter_ = &(cf.Add({{"method", "other"}}));
+        observed_requests_error_post_counter_ = &(cf.Add({{"success", "false"}, {"method", "POST"}}));
+        observed_requests_error_get_counter_ = &(cf.Add({{"success", "false"}, {"method", "GET"}}));
+        observed_requests_error_put_counter_ = &(cf.Add({{"success", "false"}, {"method", "PUT"}}));
+        observed_requests_error_delete_counter_ = &(cf.Add({{"success", "false"}, {"method", "DELETE"}}));
+        observed_requests_error_head_counter_ = &(cf.Add({{"success", "false"}, {"method", "HEAD"}}));
+        observed_requests_error_other_counter_ = &(cf.Add({{"success", "false"}, {"method", "other"}}));
 
         ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds"), std::string("Http2 message responses delay (seconds) in ") + name_);
         responses_delay_seconds_histogram_ = &(hf1.Add({}, responseDelaySecondsHistogramBucketBoundaries));
@@ -126,22 +126,22 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
     if (metrics_) {
         // counters
         if (req.method() == "POST") {
-            observed_requests_failed_post_counter_->Increment();
+            observed_requests_error_post_counter_->Increment();
         }
         else if (req.method() == "GET") {
-            observed_requests_failed_get_counter_->Increment();
+            observed_requests_error_get_counter_->Increment();
         }
         else if (req.method() == "PUT") {
-            observed_requests_failed_put_counter_->Increment();
+            observed_requests_error_put_counter_->Increment();
         }
         else if (req.method() == "DELETE") {
-            observed_requests_failed_delete_counter_->Increment();
+            observed_requests_error_delete_counter_->Increment();
         }
         else if (req.method() == "HEAD") {
-            observed_requests_failed_head_counter_->Increment();
+            observed_requests_error_head_counter_->Increment();
         }
         else {
-            observed_requests_failed_other_counter_->Increment();
+            observed_requests_error_other_counter_->Increment();
         }
     }
 

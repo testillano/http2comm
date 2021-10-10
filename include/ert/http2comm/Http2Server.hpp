@@ -71,18 +71,18 @@ class Http2Server
     // metrics:
     ert::metrics::Metrics *metrics_{};
 
-    ert::metrics::counter_t *observed_requests_successful_post_counter_{};
-    ert::metrics::counter_t *observed_requests_successful_get_counter_{};
-    ert::metrics::counter_t *observed_requests_successful_put_counter_{};
-    ert::metrics::counter_t *observed_requests_successful_delete_counter_{};
-    ert::metrics::counter_t *observed_requests_successful_head_counter_{};
-    ert::metrics::counter_t *observed_requests_successful_other_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_post_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_get_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_put_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_delete_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_head_counter_{};
-    ert::metrics::counter_t *observed_requests_failed_other_counter_{};
+    ert::metrics::counter_t *observed_requests_post_counter_{};
+    ert::metrics::counter_t *observed_requests_get_counter_{};
+    ert::metrics::counter_t *observed_requests_put_counter_{};
+    ert::metrics::counter_t *observed_requests_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_head_counter_{};
+    ert::metrics::counter_t *observed_requests_other_counter_{};
+    ert::metrics::counter_t *observed_requests_error_post_counter_{};
+    ert::metrics::counter_t *observed_requests_error_get_counter_{};
+    ert::metrics::counter_t *observed_requests_error_put_counter_{};
+    ert::metrics::counter_t *observed_requests_error_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_error_head_counter_{};
+    ert::metrics::counter_t *observed_requests_error_other_counter_{};
 
     ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
