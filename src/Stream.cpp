@@ -148,6 +148,10 @@ void Stream::commit(unsigned int statusCode,
                 std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             );
+            server_->responses_delay_seconds_gauge_->Set(durationSeconds);
+            server_->messages_size_bytes_rx_gauge_->Set(request_->str().size());
+            server_->messages_size_bytes_tx_gauge_->Set(responseBody.size());
+
             server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
             server_->messages_size_bytes_rx_histogram_->Observe(request_->str().size());
             server_->messages_size_bytes_tx_histogram_->Observe(responseBody.size());

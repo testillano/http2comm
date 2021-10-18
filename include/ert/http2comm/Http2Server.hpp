@@ -84,6 +84,10 @@ class Http2Server
     ert::metrics::counter_t *observed_requests_error_head_counter_{};
     ert::metrics::counter_t *observed_requests_error_other_counter_{};
 
+    ert::metrics::gauge_t *responses_delay_seconds_gauge_{};
+    ert::metrics::gauge_t *messages_size_bytes_rx_gauge_{};
+    ert::metrics::gauge_t *messages_size_bytes_tx_gauge_{};
+
     ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};

@@ -84,10 +84,17 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
         observed_requests_error_head_counter_ = &(cf.Add({{"success", "false"}, {"method", "HEAD"}}));
         observed_requests_error_other_counter_ = &(cf.Add({{"success", "false"}, {"method", "other"}}));
 
-        ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds"), std::string("Http2 message responses delay (seconds) in ") + name_);
+        ert::metrics::gauge_family_ref_t gf1 = metrics->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_);
+        responses_delay_seconds_gauge_ = &(gf1.Add({}));
+
+        ert::metrics::gauge_family_ref_t gf2 = metrics->addGaugeFamily(name_ + std::string("_messages_size_bytes_gauge"), std::string("Http2 message sizes gauge (bytes) in ") + name_);
+        messages_size_bytes_rx_gauge_ = &(gf2.Add({{"direction", "rx"}}));
+        messages_size_bytes_tx_gauge_ = &(gf2.Add({{"direction", "tx"}}));
+
+        ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay (seconds) in ") + name_);
         responses_delay_seconds_histogram_ = &(hf1.Add({}, responseDelaySecondsHistogramBucketBoundaries));
 
-        ert::metrics::histogram_family_ref_t hf2 = metrics->addHistogramFamily(name_ + std::string("_messages_size_bytes"), std::string("Http2 message sizes (bytes) in ") + name_);
+        ert::metrics::histogram_family_ref_t hf2 = metrics->addHistogramFamily(name_ + std::string("_messages_size_bytes_histogram"), std::string("Http2 message sizes (bytes) in ") + name_);
         messages_size_bytes_rx_histogram_ = &(hf2.Add({{"direction", "rx"}}, messageSizeBytesHistogramBucketBoundaries));
         messages_size_bytes_tx_histogram_ = &(hf2.Add({{"direction", "tx"}}, messageSizeBytesHistogramBucketBoundaries));
     }
