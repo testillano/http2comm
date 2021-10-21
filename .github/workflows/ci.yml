@@ -1,4 +1,4 @@
-name: Build docker image and publish to Docker Hub
+name: Main project workflow
 on:
   # Build on demand:
   workflow_dispatch:
@@ -24,6 +24,20 @@ on:
   #  types: [published]
 
 jobs:
+  format_style:
+    name: Check source code format
+    runs-on: ubuntu-latest
+    steps:
+    -
+      name: Check out the repo
+      uses: actions/checkout@v2
+    -
+      name: Run frankwolf format
+      run: |
+          sources=$(find . -name "*.hpp" -o -name "*.cpp")
+          docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
+          git diff --exit-code
+
   build_and_push:
     name: Build and push docker images to Docker Hub
     runs-on: ubuntu-latest
@@ -70,24 +84,24 @@ jobs:
         run: |
           IMAGE_ID1=docker.io/testillano/http2comm_builder
           IMAGE_ID2=docker.io/testillano/http2comm
-          
+
           # workflow dispatch event:
           image_tag=${{ github.event.inputs.tag }}
           echo Workflow dispatch image_tag=$image_tag
-          
+
           # Strip git ref prefix from version
           [ -z "${image_tag}" ] && image_tag=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          
+
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && image_tag=$(echo $image_tag | sed -e 's/^v//')
-          
+
           # Use Docker `latest` tag convention
           [ "$image_tag" == "master" ] && image_tag=latest
-          
+
           echo Processed image_tag=$image_tag
-          
+
           docker tag testillano/http2comm_builder:local $IMAGE_ID1:$image_tag
           docker tag testillano/http2comm:local $IMAGE_ID2:$image_tag
-          
+
           docker push $IMAGE_ID1:$image_tag
           docker push $IMAGE_ID2:$image_tag
