@@ -14,10 +14,10 @@ You could check an example of use at [h2agent](https://github.com/testillano/h2a
 
 ## Project image
 
-This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`:
+This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
 
 ```bash
-$ docker pull testillano/http2comm:<tag>
+$ docker pull ghcr.io/testillano/http2comm:<tag>
 ```
 
 You could also build it using the script `./build.sh` located at project root:
@@ -36,17 +36,17 @@ To run compilation over this image, just run with `docker`. The `entrypoint` (ch
 ```bash
 $ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
 $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         testillano/http2comm:<tag>
+         ghcr.io/testillano/http2comm:<tag>
 ```
 
 ## Build project with docker
 
 ### Builder image
 
-This image is already available at `docker hub` for every repository `tag`, and also for master as `latest`:
+This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
 
 ```bash
-$ docker pull testillano/http2comm_builder:<tag>
+$ docker pull ghcr.io/testillano/http2comm_builder:<tag>
 ```
 
 You could also build it using the script `./build.sh` located at project root:
@@ -65,14 +65,14 @@ Builder image is used to build the project library. To run compilation over this
 ```bash
 $ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
 $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         testillano/http2comm_builder:<tag>
+         ghcr.io/testillano/http2comm_builder:<tag>
 ```
 
 You could generate documentation passing extra arguments to the [entry point](https://github.com/testillano/nghttp2/blob/master/deps/build.sh) behind:
 
 ```bash
 $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         testillano/http2comm_builder::<tag>-build "" doc
+         ghcr.io/testillano/http2comm_builder::<tag>-build "" doc
 ```
 
 You could also build the library using the script `./build.sh` located at project root:

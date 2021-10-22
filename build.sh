@@ -12,6 +12,7 @@ jupp0r_prometheuscpp_ver__dflt=v0.13.0
 # 3rd party used by prometheus:
 civetweb_civetweb_ver__dflt=v1.14
 ert_metrics_ver__dflt=v0.0.1
+registry=ghcr.io/testillano
 
 #############
 # FUNCTIONS #
@@ -91,7 +92,7 @@ build_builder_image() {
   set -x
   rm -f CMakeCache.txt
   # shellcheck disable=SC2086
-  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -f Dockerfile.build -t testillano/http2comm_builder:"${image_tag}" . || return 1
+  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -f Dockerfile.build -t ${registry}/http2comm_builder:"${image_tag}" . || return 1
   set +x
 }
 
@@ -108,9 +109,9 @@ build_project() {
   set -x
   rm -f CMakeCache.txt
   # shellcheck disable=SC2086
-  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder:"${base_tag}" || return 1
+  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code ${registry}/http2comm_builder:"${base_tag}" || return 1
   # shellcheck disable=SC2086
-  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code testillano/http2comm_builder:"${base_tag}" "" doc || return 1
+  docker run --rm -it -u "$(id -u):$(id -g)" ${envs} -v "${PWD}":/code -w /code ${registry}/http2comm_builder:"${base_tag}" "" doc || return 1
   set +x
 }
 
@@ -130,7 +131,7 @@ build_project_image() {
   set -x
   rm -f CMakeCache.txt
   # shellcheck disable=SC2086
-  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -t testillano/http2comm:"${image_tag}" . || return 1
+  docker build --rm ${DBUILD_XTRA_OPTS} ${bargs} -t ${registry}/http2comm:"${image_tag}" . || return 1
   set +x
 }
 
