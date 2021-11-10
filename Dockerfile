@@ -1,5 +1,5 @@
 ARG base_tag=latest
-FROM testillano/http2comm_builder:${base_tag}
+FROM ghcr.io/testillano/http2comm_builder:${base_tag}
 MAINTAINER testillano
 
 LABEL testillano.http2comm.description="ert_http2comm library image"
