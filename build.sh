@@ -98,6 +98,12 @@ build_builder_image() {
 
 build_project() {
   echo
+  echo "=== Format source code ==="
+  echo
+  sources=$(find . -name "*.hpp" -o -name "*.cpp")
+  docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
+
+  echo
   echo "=== Build http2comm project ==="
   echo
   _read base_tag
