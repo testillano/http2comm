@@ -84,13 +84,14 @@ public:
 
     enum class Method
     {
-        GET, PUT, POST, DELETE
+        POST, GET, PUT, DELETE, HEAD
     };
 
     struct response
     {
         std::string body;
-        int status; //http result code
+        int statusCode;
+        nghttp2::asio_http2::header_map headers;
     };
 
 private:
@@ -118,16 +119,16 @@ public:
 
     virtual void setHttp2Connection(std::shared_ptr<Http2Connection> connection);
     virtual std::shared_ptr<Http2Connection> getHttp2Connection();
-    virtual Http2Client::response send(const Http2Client::Method&,
-                                       const std::string& uri_path,
-                                       const std::string& json);
+    virtual Http2Client::response send(const Http2Client::Method &method,
+                                       const std::string &uri,
+                                       const std::string &body,
+                                       const nghttp2::asio_http2::header_map &headers);
 private:
     std::shared_ptr<Http2Connection> connection_;
     const std::chrono::milliseconds request_timeout_;
     const std::string host_;
-    const std::string scheme_;
 
-    std::string getUri(const std::string& uri_path);
+    std::string getUri(const std::string &uri, const std::string &scheme = "" /* http or https by default, but could be forced here */);
 };
 
 }

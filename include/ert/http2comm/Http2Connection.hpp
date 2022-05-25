@@ -79,6 +79,12 @@ public:
         CLOSED
     };
 
+    // Seccion factory with io_service, host, port and secure inputs:
+    nghttp2::asio_http2::client::session createSession(boost::asio::io_service &ioService, const std::string &host, const std::string &port, bool secure);
+
+    // Set on_connect/on_error session callbacks
+    void configureSession();
+
 public:
     /// Class constructors
 
@@ -87,8 +93,9 @@ public:
      *
      * \param host Endpoint host
      * \param port Endpoint port
+     * \param secure Secure connection. False by default
      */
-    Http2Connection(const std::string& host, const std::string& port);
+    Http2Connection(const std::string& host, const std::string& port, bool secure);
 
     /**
      * Copy constructor
@@ -151,6 +158,13 @@ public:
     const std::string& getPort() const;
 
     /**
+     * Returns true for secured connection
+     *
+     * \return Boolean about secured connection
+     */
+    bool isSecure() const;
+
+    /**
      * Returns the connection status
      *
      * \return Http2Connection status
@@ -184,6 +198,17 @@ public:
      */
     void onClose(connection_callback connection_closed_callback);
 
+    /**
+    * Reconnection procedure
+    */
+    void reconnect();
+
+
+    /**
+    * Class string representation
+    */
+    std::string asString() const;
+
 private:
     /// Internal methods
 
@@ -200,20 +225,21 @@ private:
 private:
 
     /// ASIO attributes
-    std::unique_ptr<boost::asio::io_service>
-    io_service_; //non-copyable and non-movable
-    std::unique_ptr<boost::asio::io_service::work> work_;
-    nghttp2::asio_http2::client::session session_; //non-copyable
+    boost::asio::io_service io_service_;
+    boost::asio::io_service::work work_;
+    nghttp2::asio_http2::client::session *session_; // session is non-copyable, so we will use this pointer
+    // to allow recreating the session (reconnect feature).
 
     /// Class attributes
     Status status_;
-    const std::string host_;
-    const std::string port_;
+    std::string host_;
+    std::string port_;
+    bool secure_;
     connection_callback connection_closed_callback_;
 
     /// Concurrency attributes
     std::mutex mutex_;
-    std::thread execution_;
+    std::thread thread_;
     std::condition_variable status_change_cond_var_;
 
 

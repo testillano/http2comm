@@ -43,20 +43,18 @@ SOFTWARE.
 
 #include <ert/tracing/Logger.hpp>
 
+#include <ert/http2comm/Http2Headers.hpp>
 #include <ert/http2comm/Http2Client.hpp>
 #include <ert/http2comm/Http2Connection.hpp>
 
 namespace
 {
-std::map<ert::http2comm::Http2Client::Method, std::string> method_to_str = { {
-        ert::http2comm::Http2Client::Method::GET, "GET"
-    }, {
-        ert::http2comm::Http2Client::Method::PUT, "PUT"
-    }, {
-        ert::http2comm::Http2Client::Method::POST, "POST"
-    }, {
-        ert::http2comm::Http2Client::Method::DELETE, "DELETE"
-    }
+std::map<ert::http2comm::Http2Client::Method, std::string> method_to_str = {
+    { ert::http2comm::Http2Client::Method::POST, "POST" },
+    { ert::http2comm::Http2Client::Method::GET, "GET" },
+    { ert::http2comm::Http2Client::Method::PUT, "PUT" },
+    { ert::http2comm::Http2Client::Method::DELETE, "DELETE" },
+    { ert::http2comm::Http2Client::Method::HEAD, "HEAD" }
 };
 }
 
@@ -67,14 +65,13 @@ namespace http2comm
 Http2Client::Http2Client(std::shared_ptr<Http2Connection>
                          connection,
                          const std::chrono::milliseconds& request_timeout) :
-    connection_(connection), request_timeout_(request_timeout), scheme_(
-        "http")
+    connection_(connection), request_timeout_(request_timeout)
 {
 }
 
 Http2Client::Http2Client(const std::chrono::milliseconds&
                          request_timeout) :
-    request_timeout_(request_timeout), scheme_("http")
+    request_timeout_(request_timeout)
 {
 }
 
@@ -92,40 +89,55 @@ Http2Client::getHttp2Connection()
 }
 
 Http2Client::response Http2Client::send(
-    const Http2Client::Method&
-    method,
-    const std::string& uri_path, const std::string& json)
+    const Http2Client::Method &method,
+    const std::string &uri,
+    const std::string &body,
+    const nghttp2::asio_http2::header_map &headers)
 {
     // Internal Server Error response if connection not initialized
     if (!connection_)
     {
+        LOGINFORMATIONAL(ert::tracing::Logger::informational("There must be a connection instance !", ERT_FILE_LOCATION));
         return Http2Client::response{"", 500};
     }
+    if (connection_->getStatus() != Http2Connection::Status::OPEN)
+    {
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connection must be OPEN to send request (%s) !", connection_->asString().c_str()), ERT_FILE_LOCATION));
 
-    auto url = getUri(uri_path);
+        connection_->reconnect();
+        connection_->waitToBeConnected();
+        if (connection_->getStatus() != Http2Connection::Status::OPEN) {
+            LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to reconnect '%s'", connection_->asString().c_str()), ERT_FILE_LOCATION));
+            return Http2Client::response{"", 503};
+        }
+    }
+
+    auto url = getUri(uri);
     auto method_str = ::method_to_str[method];
-    LOGINFORMATIONAL(ert::tracing::Logger::informational(
-                         ert::tracing::Logger::asString("Sending %s request to: %s; Data: %s; server connection status: %d",
-                                 method_str.c_str(), url.c_str(), json.c_str(),
-                                 static_cast<int>(connection_->getStatus())), ERT_FILE_LOCATION));
+
+    LOGINFORMATIONAL(
+        ert::tracing::Logger::informational(ert::tracing::Logger::asString("Sending %s request to url: %s; body: %s; headers: %s; %s",
+                                            method_str.c_str(), url.c_str(), body.c_str(), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
+    );
 
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
                            const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
     {
-        return sess.submit(ec, method_str, url, json, headers);
+        return sess.submit(ec, method_str, url, body, headers);
     };
 
     auto& session = connection_->getSession();
     auto task = std::make_shared<Http2Client::task>();
 
-    session.io_service().post([&, task]
+    session.io_service().post([&, task, headers]
     {
         boost::system::error_code ec;
 
-        //configure headers
-        nghttp2::asio_http2::header_value ctValue = {"application/json", 0};
-        nghttp2::asio_http2::header_value clValue = {std::to_string(json.length()), 0};
-        nghttp2::asio_http2::header_map headers = { {"content-type", ctValue}, {"content-length", clValue} };
+        // // example to add headers:
+        // nghttp2::asio_http2::header_value ctValue = {"application/json", 0};
+        // nghttp2::asio_http2::header_value clValue = {std::to_string(body.length()), 0};
+        // headers.emplace("content-type", ctValue);
+        // headers.emplace("content-length", clValue);
 
         //perform submit
         auto req = submit(session, headers, ec);
@@ -137,15 +149,15 @@ Http2Client::response Http2Client::send(
             {
                 if (len > 0)
                 {
-                    std::string json (reinterpret_cast<const char*>(data), len);
-                    task->data += json;
+                    std::string body (reinterpret_cast<const char*>(data), len);
+                    task->data += body;
                 }
                 else
                 {
                     //setting the value on 'response' (promise) will unlock 'done' (future)
-                    task->response.set_value(Http2Client::response {task->data, res.status_code()});
+                    task->response.set_value(Http2Client::response {task->data, res.status_code(), res.header()});
                     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString(
-                            "Request has been answered with %d; Data: %s", res.status_code(), task->data.c_str()), ERT_FILE_LOCATION));
+                            "Request has been answered with status code: %d; data: %s; headers: %s", res.status_code(), task->data.c_str(), headersAsString(res.header()).c_str()), ERT_FILE_LOCATION));
                 }
             });
         });
@@ -170,10 +182,30 @@ Http2Client::response Http2Client::send(
 
 }
 
-std::string Http2Client::getUri(const std::string& uri_path)
+std::string Http2Client::getUri(const std::string& uri, const std::string &scheme)
 {
-    return scheme_ + "://" + connection_->getHost() + ":"
-           + connection_->getPort() + "/" + uri_path;
+    std::string result{};
+
+    if (scheme.empty()) {
+        result = "http";
+        if (connection_->isSecure()) {
+            result += "s";
+        }
+    }
+    else {
+        result = scheme;
+    }
+
+    result += "://" + connection_->getHost() + ":" + connection_->getPort();
+    if (uri.empty()) return result;
+
+    if (uri[0] != '/') {
+        result += "/";
+    }
+
+    result += uri;
+
+    return result;
 }
 
 }

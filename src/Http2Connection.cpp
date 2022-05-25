@@ -42,38 +42,60 @@ SOFTWARE.
 #include <ert/tracing/Logger.hpp>
 #include <ert/http2comm/Http2Connection.hpp>
 
+
+namespace {
+std::map<ert::http2comm::Http2Connection::Status, std::string> status_to_str = {
+    { ert::http2comm::Http2Connection::Status::NOT_OPEN, "NOT_OPEN" },
+    { ert::http2comm::Http2Connection::Status::OPEN, "OPEN" },
+    { ert::http2comm::Http2Connection::Status::CLOSED, "CLOSED" }
+};
+}
+
+
 namespace ert
 {
 namespace http2comm
 {
+nghttp2::asio_http2::client::session Http2Connection::createSession(boost::asio::io_service &ioService, const std::string &host, const std::string &port, bool secure) {
+    if (secure)
+    {
+        boost::system::error_code ec;
+        boost::asio::ssl::context tls_ctx(boost::asio::ssl::context::sslv23);
+        tls_ctx.set_default_verify_paths();
+        nghttp2::asio_http2::client::configure_tls_context(ec, tls_ctx);
+        return nghttp2::asio_http2::client::session(ioService, tls_ctx, host, port);
+    }
+
+    return nghttp2::asio_http2::client::session(ioService, host, port);
+}
+
+void Http2Connection::configureSession() {
+    session_->on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
+    {
+        status_ = Status::OPEN;
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connected to '%s'", asString().c_str()), ERT_FILE_LOCATION));
+        status_change_cond_var_.notify_one();
+    });
+
+    session_->on_error([this](const boost::system::error_code & ec)
+    {
+        notifyClose();
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Error on '%s'", asString().c_str()), ERT_FILE_LOCATION));
+    });
+}
+
 Http2Connection::Http2Connection(const std::string& host,
-                                 const std::string& port) :
-    io_service_(new boost::asio::io_service()),
-    work_(new boost::asio::io_service::work(*io_service_)),
-    session_(nghttp2::asio_http2::client::session(*io_service_, host, port)),
+                                 const std::string& port,
+                                 bool secure) :
+    work_(boost::asio::io_service::work(io_service_)),
     status_(Status::NOT_OPEN),
     host_(host),
-    port_(port)
+    port_(port),
+    secure_(secure),
+    session_(new nghttp2::asio_http2::client::session(createSession(io_service_, host, port, secure)))
 {
-    session_.on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
-    {
-
-        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString(
-                             "Connected to %s:%s", host_.c_str(), port_.c_str()), ERT_FILE_LOCATION));
-        status_ = Status::OPEN;
-        status_change_cond_var_.notify_one();
-
-    });
-
-    session_.on_error([this](const boost::system::error_code & ec)
-    {
-        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString(
-                             "Error in the connection to %s:%s : %s", host_.c_str(), port_.c_str(), ec.message().c_str()), ERT_FILE_LOCATION));
-
-        notifyClose();
-    });
-
-    execution_ = std::thread([&] {io_service_->run();});
+    configureSession();
+    thread_ = std::thread([&] { io_service_.run(); });
 }
 
 Http2Connection::~Http2Connection()
@@ -95,18 +117,19 @@ void Http2Connection::notifyClose()
 
 void Http2Connection::closeImpl()
 {
-    work_.reset();
-    io_service_->stop();
+    io_service_.stop();
 
-    if (execution_.joinable())
+    if (thread_.joinable())
     {
-        execution_.join();
+        thread_.join();
     }
 
     if (status_ == Status::OPEN)
     {
-        session_.shutdown();
+        if(session_) session_->shutdown();
     }
+
+    delete(session_);
 }
 
 void Http2Connection::close()
@@ -117,7 +140,7 @@ void Http2Connection::close()
 
 nghttp2::asio_http2::client::session& Http2Connection::getSession()
 {
-    return session_;
+    return *session_;
 }
 
 const std::string& Http2Connection::getHost() const
@@ -130,6 +153,11 @@ const std::string& Http2Connection::getPort() const
     return port_;
 }
 
+bool Http2Connection::isSecure() const
+{
+    return secure_;
+}
+
 const Http2Connection::Status&
 Http2Connection::getStatus()
 const
@@ -139,6 +167,8 @@ const
 
 bool Http2Connection::waitToBeConnected()
 {
+    LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString("waitToBeConnected() to '%s'", asString().c_str()),  ERT_FILE_LOCATION));
+
     std::unique_lock<std::mutex> lock(mutex_);
     status_change_cond_var_.wait(lock, [&]
     {
@@ -150,6 +180,8 @@ bool Http2Connection::waitToBeConnected()
 bool Http2Connection::waitToBeDisconnected(const
         std::chrono::duration<int, std::milli>& time)
 {
+    LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString("waitToBeDisconnected() from '%s'", asString().c_str()),  ERT_FILE_LOCATION));
+
     std::unique_lock<std::mutex> lock(mutex_);
     return status_change_cond_var_.wait_for(lock, time, [&]
     {
@@ -161,6 +193,31 @@ void Http2Connection::onClose(connection_callback
                               connection_closed_callback)
 {
     connection_closed_callback_ = connection_closed_callback;
+}
+
+void Http2Connection::reconnect()
+{
+    LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Reconnecting to '%s'", asString().c_str()), ERT_FILE_LOCATION));
+
+    std::unique_lock<std::mutex> lock(mutex_); // consider shared_mutex
+    delete(session_);
+    status_ = Status::NOT_OPEN;
+    session_ = new nghttp2::asio_http2::client::session(createSession(io_service_, host_, port_, secure_));
+    configureSession();
+}
+
+std::string Http2Connection::asString() const {
+    std::string result{};
+
+    result += (secure_ ? "secured":"regular");
+    result += " connection | host: ";
+    result += host_;
+    result += " | port: ";
+    result += port_;
+    result += " | status: ";
+    result += ::status_to_str[getStatus()];
+
+    return result;
 }
 
 }

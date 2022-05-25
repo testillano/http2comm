@@ -46,6 +46,21 @@ namespace ert
 namespace http2comm
 {
 
+std::string headersAsString(const nghttp2::asio_http2::header_map &headers) {
+    std::string result = "";
+
+    for(auto it = headers.begin(); it != headers.end(); it ++) {
+        result += "[";
+        result += it->first;
+        result += ": ";
+        result += it->second.value;
+        result += "]";
+    }
+
+    return result;
+}
+
+
 const nghttp2::asio_http2::header_map& Http2Headers::getHeaders() const {
     return headers_;
 }
@@ -88,6 +103,10 @@ void Http2Headers::addContentLength(size_t value, const std::string& header)
 void Http2Headers::addContentType(const std::string& value, const std::string& header)
 {
     emplace(header, value);
+}
+
+std::string Http2Headers::asString() const {
+    return headersAsString(headers_);
 }
 
 }

@@ -49,6 +49,17 @@ namespace ert
 namespace http2comm
 {
 
+/**
+ * Prints headers list for traces. For example:
+ * '[content-length: 200][content-type: application/json; charset=utf-8]'
+ *
+ * @param headers nghttp2 headers map
+ *
+ * @return sorted query parameters URI part
+ */
+std::string headersAsString(const nghttp2::asio_http2::header_map &headers);
+
+
 class Http2Headers
 {
     nghttp2::asio_http2::header_map headers_{};
@@ -99,6 +110,11 @@ public:
     * Gets current built header map
     */
     const nghttp2::asio_http2::header_map& getHeaders() const;
+
+    /**
+    * Class string representation
+    */
+    std::string asString() const;
 };
 
 }
