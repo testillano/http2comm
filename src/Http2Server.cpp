@@ -190,10 +190,10 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
             }
             else
             {
-                auto stream = std::make_shared<Stream>(req, res, res.io_service(), request, this);
+                auto stream = std::make_shared<Stream>(req, res, request, this);
                 res.on_close([stream](uint32_t error_code)
                 {
-                    stream->close(true);
+                    stream->close();
                 });
 
                 queue_dispatcher_->dispatch(stream);

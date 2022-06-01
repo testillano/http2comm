@@ -76,7 +76,6 @@ class Http2Server;
 class Stream : public std::enable_shared_from_this<Stream>
 {
     std::mutex mutex_;
-    boost::asio::io_service& io_service_;
     const nghttp2::asio_http2::server::request& req_;
     const nghttp2::asio_http2::server::response& res_;
     std::shared_ptr<std::stringstream> request_;
@@ -93,10 +92,9 @@ class Stream : public std::enable_shared_from_this<Stream>
 public:
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
-           boost::asio::io_service& io_service,
-           std::shared_ptr<std::stringstream> request, Http2Server *server) : req_(req),
+           std::shared_ptr<std::stringstream> request,
+           Http2Server *server) : req_(req),
         res_(res),
-        io_service_(io_service),
         request_(request),
         server_(server),
         closed_(false) {}
@@ -108,7 +106,7 @@ public:
     void process();
 
     // Close indication
-    void close(bool c);
+    void close();
 };
 
 

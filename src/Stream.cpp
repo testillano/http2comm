@@ -178,7 +178,7 @@ void Stream::commit(unsigned int statusCode,
         }
 
         // Send response
-        io_service_.post([self, statusCode, headers, responseBody]()
+        self->res_.io_service().post([self, statusCode, headers, responseBody]()
         {
             std::lock_guard<std::mutex> lg(self->mutex_);
             if (self->closed_)
@@ -189,17 +189,16 @@ void Stream::commit(unsigned int statusCode,
             // WORKER THREAD PROCESSING CANNOT BE DONE HERE
             // (nghttp2 pool must be free), SO, IT WILL BE
             // DONE BEFORE commit()
-
             self->res_.write_head(statusCode, headers);
             self->res_.end(responseBody);
         });
     }
 }
 
-void Stream::close(bool c)
+void Stream::close()
 {
     std::lock_guard<std::mutex> guard(mutex_);
-    closed_ = c;
+    closed_ = true;
 }
 
 }
