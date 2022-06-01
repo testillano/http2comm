@@ -181,7 +181,7 @@ void Stream::commit(unsigned int statusCode,
         self->res_.io_service().post([self, statusCode, headers, responseBody]()
         {
             std::lock_guard<std::mutex> lg(self->mutex_);
-            if (self->closed_)
+            if (self->closed_->load())
             {
                 return;
             }
@@ -197,8 +197,7 @@ void Stream::commit(unsigned int statusCode,
 
 void Stream::close()
 {
-    std::lock_guard<std::mutex> guard(mutex_);
-    closed_ = true;
+    closed_->store(true);
 }
 
 }

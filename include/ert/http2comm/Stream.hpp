@@ -40,6 +40,7 @@ SOFTWARE.
 #pragma once
 
 #include <mutex>
+#include <atomic>
 #include <sstream>
 #include <memory>
 #include <chrono>
@@ -80,7 +81,7 @@ class Stream : public std::enable_shared_from_this<Stream>
     const nghttp2::asio_http2::server::response& res_;
     std::shared_ptr<std::stringstream> request_;
     Http2Server *server_;
-    bool closed_;
+    std::shared_ptr<std::atomic_bool> closed_;
     std::chrono::microseconds reception_us_{}; // timestamp in microsecods
 
     // Completes the nghttp2 transaction (res.end())
@@ -96,8 +97,9 @@ public:
            Http2Server *server) : req_(req),
         res_(res),
         request_(request),
-        server_(server),
-        closed_(false) {}
+        server_(server) {
+        closed_ = std::make_shared<std::atomic_bool> (false);
+    }
     Stream(const Stream&) = delete;
     ~Stream() = default;
     Stream& operator=(const Stream&) = delete;
