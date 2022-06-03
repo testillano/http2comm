@@ -53,7 +53,7 @@ namespace ert
 namespace http2comm
 {
 
-void Stream::process()
+void Stream::processAndRespond()
 {
     std::vector<std::string> allowedMethods;
     unsigned int statusCode;
@@ -65,11 +65,11 @@ void Stream::process()
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
-        server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
+        server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
     }
     else if (!server_->checkMethodIsImplemented(req_))
     {
-        server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_IMPLEMENTED);
+        server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_IMPLEMENTED);
     }
     else
     {
@@ -79,16 +79,16 @@ void Stream::process()
 
             if (apiPath != "" && !ert::http2comm::URLFunctions::matchPrefix(req_.uri().path, apiPath))
             {
-                server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::WRONG_API_NAME_OR_VERSION);
+                server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::WRONG_API_NAME_OR_VERSION);
             }
             else
             {
-                server_->receive(req_, request_->str(), statusCode, headers, responseBody, responseDelayMs);
+                server_->receive(req_, request_body_->str(), statusCode, headers, responseBody, responseDelayMs);
             }
         }
         else
         {
-            server_->receiveError(req_, request_->str(), statusCode, headers, responseBody, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
+            server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
         }
     }
 
@@ -120,7 +120,7 @@ void Stream::process()
         }
     }
 
-    commit(statusCode, headers, responseBody, timer);
+    commit(statusCode, std::move(headers), std::move(responseBody), timer);
 }
 
 void Stream::commit(unsigned int statusCode,
@@ -138,6 +138,22 @@ void Stream::commit(unsigned int statusCode,
         });
     }
     else {
+        // Send response
+        res_.io_service().post([self, statusCode, headers, responseBody]()
+        {
+            std::lock_guard<std::mutex> guard(self->mutex_);
+            if (self->closed_)
+            {
+                return;
+            }
+
+            // WORKER THREAD PROCESSING CANNOT BE DONE HERE
+            // (nghttp2 pool must be free), SO, IT WILL BE
+            // DONE BEFORE commit()
+            self->res_.write_head(statusCode, headers);
+            self->res_.end(responseBody);
+        });
+
         if (server_->metrics_) {
 
             // histograms
@@ -149,11 +165,11 @@ void Stream::commit(unsigned int statusCode,
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             );
             server_->responses_delay_seconds_gauge_->Set(durationSeconds);
-            server_->messages_size_bytes_rx_gauge_->Set(request_->str().size());
+            server_->messages_size_bytes_rx_gauge_->Set(request_body_->str().size());
             server_->messages_size_bytes_tx_gauge_->Set(responseBody.size());
 
             server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
-            server_->messages_size_bytes_rx_histogram_->Observe(request_->str().size());
+            server_->messages_size_bytes_rx_histogram_->Observe(request_body_->str().size());
             server_->messages_size_bytes_tx_histogram_->Observe(responseBody.size());
 
             // counters
@@ -176,28 +192,12 @@ void Stream::commit(unsigned int statusCode,
                 server_->observed_requests_other_counter_->Increment();
             }
         }
-
-        // Send response
-        self->res_.io_service().post([self, statusCode, headers, responseBody]()
-        {
-            std::lock_guard<std::mutex> lg(self->mutex_);
-            if (self->closed_->load())
-            {
-                return;
-            }
-
-            // WORKER THREAD PROCESSING CANNOT BE DONE HERE
-            // (nghttp2 pool must be free), SO, IT WILL BE
-            // DONE BEFORE commit()
-            self->res_.write_head(statusCode, headers);
-            self->res_.end(responseBody);
-        });
     }
 }
 
-void Stream::close()
-{
-    closed_->store(true);
+void Stream::close() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    closed_ = true;
 }
 
 }

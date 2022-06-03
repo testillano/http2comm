@@ -181,28 +181,27 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
     return [&](const nghttp2::asio_http2::server::request & req,
                const nghttp2::asio_http2::server::response & res)
     {
-        auto request = std::make_shared<std::stringstream>();
-        req.on_data([request, &req, &res, this](const uint8_t* data, std::size_t len)
+        auto requestBody = std::make_shared<std::stringstream>();
+        auto stream = std::make_shared<Stream>(req, res, requestBody, this);
+        req.on_data([requestBody, stream, this](const uint8_t* data, std::size_t len)
         {
             if (len > 0)
             {
-                std::copy(data, data + len, std::ostream_iterator<uint8_t>(*request));
+                std::copy(data, data + len, std::ostream_iterator<uint8_t>(*requestBody));
             }
             else
             {
-                auto stream = std::make_shared<Stream>(req, res, request, this);
-                res.on_close([stream](uint32_t error_code)
-                {
-                    stream->close();
-                });
-
                 if (queue_dispatcher_) {
                     queue_dispatcher_->dispatch(stream);
                 }
                 else {
-                    stream->process();
+                    stream->processAndRespond();
                 }
             }
+        });
+        res.on_close([stream](uint32_t error_code)
+        {
+            stream->close();
         });
     };
 }

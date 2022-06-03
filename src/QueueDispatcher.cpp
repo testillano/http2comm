@@ -104,7 +104,7 @@ void QueueDispatcher::dispatch_thread_handler(void)
             //unlock now that we're done messing with the queue
             lock.unlock();
 
-            st->process();
+            st->processAndRespond();
 
             lock.lock();
         }
