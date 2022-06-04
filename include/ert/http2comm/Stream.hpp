@@ -81,7 +81,9 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::shared_ptr<std::stringstream> request_body_;
     Http2Server *server_;
     bool closed_;
+    // For metrics:
     std::chrono::microseconds reception_us_{}; // timestamp in microsecods
+    unsigned int response_body_size_; // size in bytes
 
     // Completes the nghttp2 transaction (res.end())
     void commit(unsigned int statusCode,

@@ -120,6 +120,9 @@ void Stream::processAndRespond()
         }
     }
 
+    if (server_->metrics_)
+        response_body_size_ = responseBody.size();
+
     commit(statusCode, std::move(headers), std::move(responseBody), timer);
 }
 
@@ -153,51 +156,50 @@ void Stream::commit(unsigned int statusCode,
             self->res_.write_head(statusCode, headers);
             self->res_.end(responseBody);
         });
-
-        if (server_->metrics_) {
-
-            // histograms
-            auto finalUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            double durationUs = finalUs - reception_us_.count();
-            double durationSeconds = durationUs/1000000.0;
-            LOGDEBUG(
-                std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
-                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
-            );
-            server_->responses_delay_seconds_gauge_->Set(durationSeconds);
-            server_->messages_size_bytes_rx_gauge_->Set(request_body_->str().size());
-            server_->messages_size_bytes_tx_gauge_->Set(responseBody.size());
-
-            server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
-            server_->messages_size_bytes_rx_histogram_->Observe(request_body_->str().size());
-            server_->messages_size_bytes_tx_histogram_->Observe(responseBody.size());
-
-            // counters
-            if (req_.method() == "POST") {
-                server_->observed_requests_post_counter_->Increment();
-            }
-            else if (req_.method() == "GET") {
-                server_->observed_requests_get_counter_->Increment();
-            }
-            else if (req_.method() == "PUT") {
-                server_->observed_requests_put_counter_->Increment();
-            }
-            else if (req_.method() == "DELETE") {
-                server_->observed_requests_delete_counter_->Increment();
-            }
-            else if (req_.method() == "HEAD") {
-                server_->observed_requests_head_counter_->Increment();
-            }
-            else {
-                server_->observed_requests_other_counter_->Increment();
-            }
-        }
     }
 }
 
 void Stream::close() {
     std::lock_guard<std::mutex> guard(mutex_);
     closed_ = true;
+
+    if (!server_->metrics_) return;
+
+    // histograms
+    auto finalUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    double durationUs = finalUs - reception_us_.count();
+    double durationSeconds = durationUs/1000000.0;
+    LOGDEBUG(
+        std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
+        ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+    );
+    server_->responses_delay_seconds_gauge_->Set(durationSeconds);
+    server_->messages_size_bytes_rx_gauge_->Set(request_body_->str().size());
+    server_->messages_size_bytes_tx_gauge_->Set(response_body_size_);
+
+    server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
+    server_->messages_size_bytes_rx_histogram_->Observe(request_body_->str().size());
+    server_->messages_size_bytes_tx_histogram_->Observe(response_body_size_);
+
+    // counters
+    if (req_.method() == "POST") {
+        server_->observed_requests_post_counter_->Increment();
+    }
+    else if (req_.method() == "GET") {
+        server_->observed_requests_get_counter_->Increment();
+    }
+    else if (req_.method() == "PUT") {
+        server_->observed_requests_put_counter_->Increment();
+    }
+    else if (req_.method() == "DELETE") {
+        server_->observed_requests_delete_counter_->Increment();
+    }
+    else if (req_.method() == "HEAD") {
+        server_->observed_requests_head_counter_->Increment();
+    }
+    else {
+        server_->observed_requests_other_counter_->Increment();
+    }
 }
 
 }
