@@ -41,6 +41,7 @@ SOFTWARE.
 
 #include <string>
 #include <memory>
+#include <chrono>
 
 #include <boost/asio.hpp>
 
@@ -191,6 +192,7 @@ public:
     *
     * @param req nghttp2-asio request structure.
     * @param requestBody request body received.
+    * @param receptionTimestampUs microseconds timestamp of reception.
     * @param statusCode response status code to be filled by reference.
     * @param headers reponse headers to be filled by reference.
     * @param responseBody response body to be filled by reference.
@@ -198,6 +200,7 @@ public:
     */
     virtual void receive(const nghttp2::asio_http2::server::request& req,
                          const std::string& requestBody,
+                         const std::chrono::microseconds &receptionTimestampUs,
                          unsigned int& statusCode,
                          nghttp2::asio_http2::header_map& headers,
                          std::string& responseBody,

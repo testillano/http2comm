@@ -39,7 +39,6 @@ SOFTWARE.
 
 #include <string>
 #include <thread>
-#include <chrono>
 #include <sstream>
 #include <iostream>
 #include <boost/exception/diagnostic_information.hpp>

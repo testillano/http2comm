@@ -61,7 +61,7 @@ void Stream::processAndRespond()
     std::string responseBody;
     unsigned int responseDelayMs{};
 
-    reception_us_ = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+    reception_timestamp_us_ = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
@@ -83,7 +83,7 @@ void Stream::processAndRespond()
             }
             else
             {
-                server_->receive(req_, request_body_->str(), statusCode, headers, responseBody, responseDelayMs);
+                server_->receive(req_, request_body_->str(), reception_timestamp_us_, statusCode, headers, responseBody, responseDelayMs);
             }
         }
         else
@@ -104,7 +104,7 @@ void Stream::processAndRespond()
 
             // Final timestamp for delay correction: this correction could be noticeable with huge transformations, but this is not usual.
             auto nowUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            auto delayUsCorrection = (nowUs - reception_us_.count());
+            auto delayUsCorrection = (nowUs - reception_timestamp_us_.count());
             responseDelayUs -= delayUsCorrection;
             LOGDEBUG(
             if (delayUsCorrection > 0) {
@@ -167,7 +167,7 @@ void Stream::close() {
 
     // histograms
     auto finalUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    double durationUs = finalUs - reception_us_.count();
+    double durationUs = finalUs - reception_timestamp_us_.count();
     double durationSeconds = durationUs/1000000.0;
     LOGDEBUG(
         std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);

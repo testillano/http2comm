@@ -11,7 +11,7 @@ ert_logger_ver__dflt=v1.0.10
 jupp0r_prometheuscpp_ver__dflt=v0.13.0
 # 3rd party used by prometheus:
 civetweb_civetweb_ver__dflt=v1.14
-ert_metrics_ver__dflt=v0.0.1
+ert_metrics_ver__dflt=v1.0.0
 registry=ghcr.io/testillano
 
 #############
