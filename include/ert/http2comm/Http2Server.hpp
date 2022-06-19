@@ -199,7 +199,7 @@ public:
     * @param responseDelayMs reponse delay in milliseconds to be filled by reference.
     */
     virtual void receive(const nghttp2::asio_http2::server::request& req,
-                         const std::string& requestBody,
+                         std::shared_ptr<std::stringstream> requestBody,
                          const std::chrono::microseconds &receptionTimestampUs,
                          unsigned int& statusCode,
                          nghttp2::asio_http2::header_map& headers,
@@ -224,7 +224,7 @@ public:
     * @param allowedMethods allowed methods vector given by server implementation. Empty by default.
     */
     virtual void receiveError(const nghttp2::asio_http2::server::request& req,
-                              const std::string& requestBody,
+                              std::shared_ptr<std::stringstream> requestBody,
                               unsigned int& statusCode,
                               nghttp2::asio_http2::header_map& headers,
                               std::string& responseBody,
@@ -234,6 +234,7 @@ public:
 
     // Default error handler
     //virtual nghttp2::asio_http2::server::request_cb errorHandler();
+
 
     /**
     * Server start

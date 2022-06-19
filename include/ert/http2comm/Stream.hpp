@@ -81,28 +81,32 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::shared_ptr<std::stringstream> request_body_;
     Http2Server *server_;
     bool closed_;
+
+    // Response (members calculated at process()):
+    unsigned int status_code_{};
+    nghttp2::asio_http2::header_map response_headers_{};
+    std::string response_body_{};
+    boost::asio::deadline_timer *timer_{};
+
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
-    unsigned int response_body_size_; // size in bytes
 
-    // Completes the nghttp2 transaction (res.end())
-    void commit(unsigned int statusCode,
-                const nghttp2::asio_http2::header_map& headers,
-                const std::string& responseBody,
-                boost::asio::deadline_timer *timer);
 public:
 
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
            std::shared_ptr<std::stringstream> requestBody,
-           Http2Server *server) : req_(req), res_(res), request_body_(requestBody), server_(server), closed_(false) {}
+           Http2Server *server) : req_(req), res_(res), request_body_(requestBody), server_(server), closed_(false), timer_(nullptr) {}
 
     Stream(const Stream&) = delete;
     ~Stream() = default;
     Stream& operator=(const Stream&) = delete;
 
-    // Process reception and ends the nghttp2 transaction
-    void processAndRespond();
+    // Process reception
+    void process();
+
+    // Completes the nghttp2 transaction (res.end()) with the values calculated at process()
+    void commit();
 
     // res.on_close()
     void close();

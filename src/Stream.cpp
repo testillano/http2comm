@@ -53,23 +53,20 @@ namespace ert
 namespace http2comm
 {
 
-void Stream::processAndRespond()
+void Stream::process()
 {
-    std::vector<std::string> allowedMethods;
-    unsigned int statusCode;
-    auto headers = nghttp2::asio_http2::header_map();
-    std::string responseBody;
-    unsigned int responseDelayMs{};
-
     reception_timestamp_us_ = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+
+    std::vector<std::string> allowedMethods;
+    unsigned int responseDelayMs{};
 
     if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
-        server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
+        server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
     }
     else if (!server_->checkMethodIsImplemented(req_))
     {
-        server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::METHOD_NOT_IMPLEMENTED);
+        server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::METHOD_NOT_IMPLEMENTED);
     }
     else
     {
@@ -79,21 +76,20 @@ void Stream::processAndRespond()
 
             if (apiPath != "" && !ert::http2comm::URLFunctions::matchPrefix(req_.uri().path, apiPath))
             {
-                server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::WRONG_API_NAME_OR_VERSION);
+                server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::WRONG_API_NAME_OR_VERSION);
             }
             else
             {
-                server_->receive(req_, request_body_->str(), reception_timestamp_us_, statusCode, headers, responseBody, responseDelayMs);
+                server_->receive(req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
             }
         }
         else
         {
-            server_->receiveError(req_, request_body_->str(), statusCode, headers, responseBody, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
+            server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::UNSUPPORTED_MEDIA_TYPE);
         }
     }
 
     // Optional reponse delay
-    boost::asio::deadline_timer *timer = nullptr;
     if (responseDelayMs != 0) { // optional delay:
         if (server_->getTimersIoService()) {
             auto responseDelayUs = 1000*responseDelayMs;
@@ -113,36 +109,29 @@ void Stream::processAndRespond()
             }
             );
 
-            timer = new boost::asio::deadline_timer(*(server_->getTimersIoService()), boost::posix_time::microseconds(responseDelayUs));
+            timer_ = new boost::asio::deadline_timer(*(server_->getTimersIoService()), boost::posix_time::microseconds(responseDelayUs));
         }
         else {
             LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io service for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
         }
     }
-
-    if (server_->metrics_)
-        response_body_size_ = responseBody.size();
-
-    commit(statusCode, std::move(headers), std::move(responseBody), timer);
 }
 
-void Stream::commit(unsigned int statusCode,
-                    const nghttp2::asio_http2::header_map& headers,
-                    const std::string& responseBody,
-                    boost::asio::deadline_timer *timer)
+void Stream::commit()
 {
     auto self = shared_from_this();
 
-    if (timer) {
+    if (timer_) {
         // timer is passed to the lambda to keep it alive (shared pointer not destroyed when it is out of scope):
-        timer->async_wait([self, timer, statusCode, headers, responseBody] (const boost::system::error_code&) {
-            self->commit(statusCode, headers, responseBody, nullptr);
-            delete timer;
+        timer_->async_wait([self] (const boost::system::error_code&) {
+            self->timer_ = nullptr;
+            self->commit();
+            delete self->timer_;
         });
     }
     else {
         // Send response
-        res_.io_service().post([self, statusCode, headers, responseBody]()
+        res_.io_service().post([self]()
         {
             std::lock_guard<std::mutex> guard(self->mutex_);
             if (self->closed_)
@@ -153,8 +142,8 @@ void Stream::commit(unsigned int statusCode,
             // WORKER THREAD PROCESSING CANNOT BE DONE HERE
             // (nghttp2 pool must be free), SO, IT WILL BE
             // DONE BEFORE commit()
-            self->res_.write_head(statusCode, headers);
-            self->res_.end(responseBody);
+            self->res_.write_head(self->status_code_, self->response_headers_);
+            self->res_.end(self->response_body_);
         });
     }
 }
@@ -174,27 +163,36 @@ void Stream::close() {
         ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
     );
     server_->responses_delay_seconds_gauge_->Set(durationSeconds);
-    server_->messages_size_bytes_rx_gauge_->Set(request_body_->str().size());
-    server_->messages_size_bytes_tx_gauge_->Set(response_body_size_);
+
+    // Efficient size calculus (better than request_body_->str().size(), because the string don't have to be built):
+    request_body_->seekg(0, std::ios::end);
+    size_t requestBodySize = request_body_->tellg();
+    //request_body_->seekg(0, std::ios::beg); // restore position (depends on what you will do)
+
+    size_t responseBodySize = response_body_.size();
+
+    server_->messages_size_bytes_rx_gauge_->Set(requestBodySize);
+    server_->messages_size_bytes_tx_gauge_->Set(responseBodySize);
 
     server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
-    server_->messages_size_bytes_rx_histogram_->Observe(request_body_->str().size());
-    server_->messages_size_bytes_tx_histogram_->Observe(response_body_size_);
+    server_->messages_size_bytes_rx_histogram_->Observe(requestBodySize);
+    server_->messages_size_bytes_tx_histogram_->Observe(responseBodySize);
 
     // counters
-    if (req_.method() == "POST") {
+    std::string method = req_.method();
+    if (method == "POST") {
         server_->observed_requests_post_counter_->Increment();
     }
-    else if (req_.method() == "GET") {
+    else if (method == "GET") {
         server_->observed_requests_get_counter_->Increment();
     }
-    else if (req_.method() == "PUT") {
+    else if (method == "PUT") {
         server_->observed_requests_put_counter_->Increment();
     }
-    else if (req_.method() == "DELETE") {
+    else if (method == "DELETE") {
         server_->observed_requests_delete_counter_->Increment();
     }
-    else if (req_.method() == "HEAD") {
+    else if (method == "HEAD") {
         server_->observed_requests_head_counter_->Increment();
     }
     else {

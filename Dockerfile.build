@@ -31,7 +31,7 @@ RUN set -x && \
     tar xvf ${civetweb_civetweb_ver}.tar.gz && mv civetweb-*/* civetweb && cd .. && \
     mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=${build_type} -DENABLE_TESTING=OFF .. && \
     make -j${make_procs} && make install && \
-    cd .. && rm -rf * && \
+    cd ../.. && rm -rf * && \
     set +x
 
 # ert_metrics

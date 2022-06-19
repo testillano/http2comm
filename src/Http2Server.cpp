@@ -120,7 +120,7 @@ std::string Http2Server::getApiPath() const
 }
 
 void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
-                               const std::string& requestBody,
+                               std::shared_ptr<std::stringstream> requestBody,
                                unsigned int& statusCode,
                                nghttp2::asio_http2::header_map& headers,
                                std::string& responseBody,
@@ -194,17 +194,18 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
                     queue_dispatcher_->dispatch(stream);
                 }
                 else {
-                    stream->processAndRespond();
+                    stream->process();
+                    stream->commit();
                 }
             }
         });
+
         res.on_close([stream](uint32_t error_code)
         {
             stream->close();
         });
     };
 }
-
 
 int Http2Server::serve(const std::string& bind_address,
                        const std::string& listen_port,
