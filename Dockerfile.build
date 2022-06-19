@@ -11,7 +11,7 @@ ARG build_type=Release
 ARG ert_logger_ver=v1.0.10
 ARG jupp0r_prometheuscpp_ver=v0.13.0
 ARG civetweb_civetweb_ver=v1.14
-ARG ert_metrics_ver=v1.0.0
+ARG ert_metrics_ver=v1.0.1
 
 RUN apk add doxygen graphviz
 
