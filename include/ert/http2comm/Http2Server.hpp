@@ -111,6 +111,12 @@ public:
 
     // setters
 
+
+    /**
+    * Gets the queue dispatcher busy threads
+    */
+    int busyThreads() const;
+
     /**
     * Enable metrics
     *

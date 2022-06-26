@@ -101,6 +101,8 @@ void QueueDispatcher::dispatch_thread_handler(void)
             auto st = std::move(q_.front());
             q_.pop();
 
+            busy_threads_++;
+
             //unlock now that we're done messing with the queue
             lock.unlock();
 
@@ -108,6 +110,7 @@ void QueueDispatcher::dispatch_thread_handler(void)
             st->commit();
 
             lock.lock();
+            busy_threads_--;
         }
     }
     while (!quit_);

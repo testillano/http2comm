@@ -42,6 +42,7 @@ SOFTWARE.
 #include <thread>
 #include <functional>
 #include <vector>
+#include <atomic>
 #include <queue>
 #include <mutex>
 #include <string>
@@ -67,10 +68,15 @@ public:
     QueueDispatcher(QueueDispatcher&& rhs) = delete;
     QueueDispatcher& operator=(QueueDispatcher&& rhs) = delete;
 
+    int busyThreads() const {
+        return busy_threads_.load();
+    }
+
 private:
     std::string name_;
     std::mutex lock_;
     std::vector<std::thread> threads_;
+    std::atomic<int> busy_threads_{0};
     std::queue<std::shared_ptr<Stream>> q_;
     std::condition_variable cv_;
     bool quit_ = false;

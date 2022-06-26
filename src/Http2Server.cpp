@@ -62,6 +62,10 @@ Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::a
     queue_dispatcher_ = (workerThreads > 1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr;
 }
 
+int Http2Server::busyThreads() const {
+    return (queue_dispatcher_ ? queue_dispatcher_->busyThreads():0);
+}
+
 void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
                                 const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries,
                                 const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries) {
@@ -202,7 +206,12 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
 
         res.on_close([stream](uint32_t error_code)
         {
-            stream->close();
+            if (error_code != 0) {
+                ert::tracing::Logger::error(ert::tracing::Logger::asString("Client connection error: %d", error_code), ERT_FILE_LOCATION);
+            }
+            else {
+                stream->close();
+            }
         });
     };
 }
