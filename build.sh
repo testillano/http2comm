@@ -4,6 +4,7 @@
 # VARIABLES #
 #############
 image_tag__dflt=latest
+base_os__dflt=ubuntu
 base_tag__dflt=latest
 make_procs__dflt=$(grep processor /proc/cpuinfo -c)
 build_type__dflt=Release
@@ -32,7 +33,7 @@ usage() {
          For headless mode you may prepend or export asked/environment variables for the corresponding
          docker procedure:
 
-         --builder-image: image_tag, base_tag (nghttp2), make_procs, build_type, ert_logger_ver, jupp0r_prometheuscpp_ver, civetweb_civetweb_ver, ert_metrics_ver
+         --builder-image: image_tag, base_os, base_tag (nghttp2), make_procs, build_type, ert_logger_ver, jupp0r_prometheuscpp_ver, civetweb_civetweb_ver, ert_metrics_ver
          --project:       make_procs, build_type, base_tag (http2comm_builder)
          --project-image: image_tag, base_tag (http2comm_builder), make_procs, build_type
          --auto:          any of the variables above
@@ -43,8 +44,9 @@ usage() {
 
          Examples:
 
-         build_type=Debug $0 --builder-image
-         image_tag=test1 $0 --auto
+         base_os=alpine $0 --auto
+         image_tag=test1 $0 --builder-image
+         build_type=Debug $0 --auto
          DBUILD_XTRA_OPTS=--no-cache $0 --auto
 
 EOF
@@ -73,6 +75,7 @@ build_builder_image() {
   echo "=== Build http2comm_builder image ==="
   echo
   _read image_tag
+  _read base_os
   _read base_tag
   _read make_procs
   _read build_type
@@ -81,7 +84,8 @@ build_builder_image() {
   _read civetweb_civetweb_ver
   _read ert_metrics_ver
 
-  bargs="--build-arg base_tag=${base_tag}"
+  bargs="--build-arg base_os=${base_os}"
+  bargs+=" --build-arg base_tag=${base_tag}"
   bargs+=" --build-arg make_procs=${make_procs}"
   bargs+=" --build-arg build_type=${build_type}"
   bargs+=" --build-arg ert_logger_ver=${ert_logger_ver}"

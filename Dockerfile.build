@@ -13,7 +13,8 @@ ARG jupp0r_prometheuscpp_ver=v0.13.0
 ARG civetweb_civetweb_ver=v1.14
 ARG ert_metrics_ver=v1.0.1
 
-RUN apk add doxygen graphviz
+ARG base_os=ubuntu
+RUN if [ "${base_os}" = "alpine" ] ; then apk update && apk add doxygen graphviz && rm -rf /var/cache/apk/* ; elif [ "${base_os}" = "ubuntu" ] ; then apt-get update && apt-get install -y doxygen graphviz && apt-get clean ; fi
 
 # ert_logger
 RUN set -x && \
@@ -23,7 +24,7 @@ RUN set -x && \
     set +x
 
 # jupp0r prometheus-cpp
-RUN apk add zlib-dev curl-dev
+RUN if [ "${base_os}" = "alpine" ] ; then apk add zlib-dev curl-dev && rm -rf /var/cache/apk/* ; elif [ "${base_os}" = "ubuntu" ] ; then apt-get install -y zlib1g-dev libcurl4-openssl-dev && apt-get clean ; fi
 RUN set -x && \
     wget https://github.com/jupp0r/prometheus-cpp/archive/refs/tags/${jupp0r_prometheuscpp_ver}.tar.gz && \
     tar xvf ${jupp0r_prometheuscpp_ver}.tar.gz && cd prometheus-cpp*/3rdparty && \
@@ -40,4 +41,3 @@ RUN set -x && \
     cmake -DERT_METRICS_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
-

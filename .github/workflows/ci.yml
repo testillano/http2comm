@@ -72,6 +72,7 @@ jobs:
       with:
         tags: ghcr.io/testillano/http2comm_builder:local
         file: Dockerfile.build
+        build-args: base_os=ubuntu
         context: .
         #push: true
     -
@@ -84,9 +85,9 @@ jobs:
       with:
         tags: ghcr.io/testillano/http2comm:local
         file: Dockerfile
+        build-args: base_tag=local
         context: .
         #push: true
-        build-args: base_tag=local
     -
       name: Image2 digest
       run: echo ${{ steps.docker_build2.outputs.digest }}
