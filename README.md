@@ -28,6 +28,7 @@ $ ./build.sh --project-image
 ```
 
 This image is built with `./Dockerfile`.
+Both `ubuntu` and `alpine` base images are supported, but the official image uploaded is the one based in `ubuntu`.
 
 ## Usage
 
@@ -57,6 +58,7 @@ $ ./build.sh --builder-image
 ```
 
 This image is built with `./Dockerfile.build`.
+Both `ubuntu` and `alpine` base images are supported, but the official image uploaded is the one based in `ubuntu`.
 
 ### Usage
 
