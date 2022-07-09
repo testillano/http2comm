@@ -203,7 +203,7 @@ public:
     *
     * @return Return the boolean about ignoring request body copy. Default implementation returns 'false'.
     */
-    virtual bool ignoreRequestBody(const nghttp2::asio_http2::server::request& req) const {
+    virtual bool ignoreRequestBody(const nghttp2::asio_http2::server::request& req) {
         return false;
     }
 
