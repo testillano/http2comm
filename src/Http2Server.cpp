@@ -190,7 +190,12 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
         {
             if (len > 0)
             {
-                std::copy(data, data + len, std::ostream_iterator<uint8_t>(*requestBody));
+                if (!ignoreRequestBody(stream->getReq())) {
+                    // https://github.com/testillano/h2agent/issues/6 is caused when this is enabled, on high load and broke client connections:
+                    // (mutexes does not solves the problem, and does not matter is shared_ptr requestBody is replaced by static type like
+                    //  stringstream; it seems that data is not correctly protected on lower layers)
+                    std::copy(data, data + len, std::ostream_iterator<uint8_t>(*requestBody));
+                }
             }
             else
             {

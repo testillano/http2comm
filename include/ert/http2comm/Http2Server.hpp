@@ -194,15 +194,29 @@ public:
     virtual bool checkHeaders(const nghttp2::asio_http2::server::request& req) = 0;
 
     /**
+    * As possible optimization, our server could ignore the request body, so nghttp2 'on_data'
+    * could be lightened skipping the request body copy into internal stringstream. This is
+    * useful when huge requests are received and they are not actually needed (for example,
+    * a dummy server could mock valid static responses regardless the content received).
+    *
+    * @param req nghttp2-asio request structure.
+    *
+    * @return Return the boolean about ignoring request body copy. Default implementation returns 'false'.
+    */
+    virtual bool ignoreRequestBody(const nghttp2::asio_http2::server::request& req) const {
+        return false;
+    }
+
+    /**
     * Virtual reception callback. Implementation is mandatory.
     *
     * @param req nghttp2-asio request structure.
     * @param requestBody request body received.
     * @param receptionTimestampUs microseconds timestamp of reception.
     * @param statusCode response status code to be filled by reference.
-    * @param headers reponse headers to be filled by reference.
+    * @param headers response headers to be filled by reference.
     * @param responseBody response body to be filled by reference.
-    * @param responseDelayMs reponse delay in milliseconds to be filled by reference.
+    * @param responseDelayMs response delay in milliseconds to be filled by reference.
     */
     virtual void receive(const nghttp2::asio_http2::server::request& req,
                          std::shared_ptr<std::stringstream> requestBody,
@@ -220,9 +234,9 @@ public:
     * </pre>
     *
     * @param req nghttp2-asio request structure.
-    * @param requestBody request body received.
+    * @param requestBody request body received (not used in default implementation, and probably never used).
     * @param statusCode response status code to be filled by reference.
-    * @param headers reponse headers to be filled by reference.
+    * @param headers response headers to be filled by reference.
     * @param responseBody response body to be filled by reference.
     * @param error error pair given by tuple code/description, i.e.: <415,'UNSUPPORTED_MEDIA_TYPE'>.
     * If no description provided, empty json document ({}) is sent in the default implementation.

@@ -102,6 +102,11 @@ public:
     ~Stream() = default;
     Stream& operator=(const Stream&) = delete;
 
+    // nghttp2-asio request structure
+    const nghttp2::asio_http2::server::request& getReq() const {
+        return req_;
+    }
+
     // Process reception
     void process();
 
