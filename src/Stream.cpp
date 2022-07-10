@@ -80,7 +80,7 @@ void Stream::process()
             }
             else
             {
-                server_->receive(req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
+                server_->receive(reception_id_, req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
             }
         }
         else

@@ -40,6 +40,7 @@ SOFTWARE.
 #include <string>
 #include <thread>
 #include <sstream>
+#include <iterator>
 #include <iostream>
 #include <boost/exception/diagnostic_information.hpp>
 
@@ -57,7 +58,7 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService), reception_id_(0) {
 
     queue_dispatcher_ = (workerThreads > 1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr;
 }
@@ -188,17 +189,20 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
         auto stream = std::make_shared<Stream>(req, res, requestBody, this);
         req.on_data([requestBody, stream, this](const uint8_t* data, std::size_t len)
         {
-            if (len > 0)
+            if (len > 0) // https://stackoverflow.com/a/72925875/2576671
             {
-                if (!ignoreRequestBody(stream->getReq())) {
+                if (receiveDataLen(stream->getReq())) {
                     // https://github.com/testillano/h2agent/issues/6 is caused when this is enabled, on high load and broke client connections:
-                    // (mutexes does not solves the problem, and does not matter is shared_ptr requestBody is replaced by static type like
-                    //  stringstream; it seems that data is not correctly protected on lower layers)
-                    std::copy(data, data + len, std::ostream_iterator<uint8_t>(*requestBody));
+                    // (mutexes does not solves the problem neither std::move of data, and does not matter is shared_ptr requestBody is replaced
+                    // by static type like stringstream; it seems that data is not correctly protected on lower layers, probably tatsuhiro-t nghttp2)
+                    std::copy(data, data + len, std::ostream_iterator<std::uint8_t>(*requestBody));
                 }
             }
             else
             {
+                reception_id_++;
+                stream->setReceptionId(reception_id_.load());
+
                 if (queue_dispatcher_) {
                     queue_dispatcher_->dispatch(stream);
                 }

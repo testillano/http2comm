@@ -88,6 +88,9 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::string response_body_{};
     boost::asio::deadline_timer *timer_{};
 
+    // Server sequence for this stream:
+    std::uint64_t reception_id_{};
+
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
 
@@ -105,6 +108,11 @@ public:
     // nghttp2-asio request structure
     const nghttp2::asio_http2::server::request& getReq() const {
         return req_;
+    }
+
+    // set server sequence
+    void setReceptionId(const std::uint64_t &id) {
+        reception_id_ = id;
     }
 
     // Process reception

@@ -93,6 +93,8 @@ class Http2Server
     ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
 
+    std::atomic<std::uint64_t> reception_id_{};
+
 protected:
 
     nghttp2::asio_http2::server::http2 server_;
@@ -200,16 +202,18 @@ public:
     * a dummy server could mock valid static responses regardless the content received).
     *
     * @param req nghttp2-asio request structure.
+    * This could be used to store data received inside a server internal indexed map.
     *
-    * @return Return the boolean about ignoring request body copy. Default implementation returns 'false'.
+    * @return Boolean about internal copy of request body received. Default implementation returns 'true'.
     */
-    virtual bool ignoreRequestBody(const nghttp2::asio_http2::server::request& req) {
-        return false;
+    virtual bool receiveDataLen(const nghttp2::asio_http2::server::request& req) {
+        return true;
     }
 
     /**
     * Virtual reception callback. Implementation is mandatory.
     *
+    * @param receptionId server reception identifier (monotonically increased value).
     * @param req nghttp2-asio request structure.
     * @param requestBody request body received.
     * @param receptionTimestampUs microseconds timestamp of reception.
@@ -218,7 +222,8 @@ public:
     * @param responseBody response body to be filled by reference.
     * @param responseDelayMs response delay in milliseconds to be filled by reference.
     */
-    virtual void receive(const nghttp2::asio_http2::server::request& req,
+    virtual void receive(const std::uint64_t &receptionId,
+                         const nghttp2::asio_http2::server::request& req,
                          std::shared_ptr<std::stringstream> requestBody,
                          const std::chrono::microseconds &receptionTimestampUs,
                          unsigned int& statusCode,
