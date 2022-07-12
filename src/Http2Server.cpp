@@ -125,7 +125,7 @@ std::string Http2Server::getApiPath() const
 }
 
 void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
-                               std::shared_ptr<std::stringstream> requestBody,
+                               const std::string &requestBody,
                                unsigned int& statusCode,
                                nghttp2::asio_http2::header_map& headers,
                                std::string& responseBody,
@@ -185,17 +185,16 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
     return [&](const nghttp2::asio_http2::server::request & req,
                const nghttp2::asio_http2::server::response & res)
     {
-        auto requestBody = std::make_shared<std::stringstream>();
-        auto stream = std::make_shared<Stream>(req, res, requestBody, this);
-        req.on_data([requestBody, stream, this](const uint8_t* data, std::size_t len)
+        auto stream = std::make_shared<Stream>(req, res, this);
+        req.on_data([stream, this](const uint8_t* data, std::size_t len)
         {
             if (len > 0) // https://stackoverflow.com/a/72925875/2576671
             {
                 if (receiveDataLen(stream->getReq())) {
                     // https://github.com/testillano/h2agent/issues/6 is caused when this is enabled, on high load and broke client connections:
                     // (mutexes does not solves the problem neither std::move of data, and does not matter is shared_ptr requestBody is replaced
-                    // by static type like stringstream; it seems that data is not correctly protected on lower layers, probably tatsuhiro-t nghttp2)
-                    std::copy(data, data + len, std::ostream_iterator<std::uint8_t>(*requestBody));
+                    // by static type; it seems that data is not correctly protected on lower layers, probably tatsuhiro-t nghttp2)
+                    stream->appendData(data, len);
                 }
             }
             else

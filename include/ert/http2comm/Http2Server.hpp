@@ -197,9 +197,9 @@ public:
 
     /**
     * As possible optimization, our server could ignore the request body, so nghttp2 'on_data'
-    * could be lightened skipping the request body copy into internal stringstream. This is
-    * useful when huge requests are received and they are not actually needed (for example,
-    * a dummy server could mock valid static responses regardless the content received).
+    * could be lightened skipping the request body internal copy. This is useful when huge
+    * requests are received and they are not actually needed (for example, a dummy server
+    * could mock valid static responses regardless the content received).
     *
     * @param req nghttp2-asio request structure.
     * This could be used to store data received inside a server internal indexed map.
@@ -224,7 +224,7 @@ public:
     */
     virtual void receive(const std::uint64_t &receptionId,
                          const nghttp2::asio_http2::server::request& req,
-                         std::shared_ptr<std::stringstream> requestBody,
+                         const std::string &requestBody,
                          const std::chrono::microseconds &receptionTimestampUs,
                          unsigned int& statusCode,
                          nghttp2::asio_http2::header_map& headers,
@@ -249,7 +249,7 @@ public:
     * @param allowedMethods allowed methods vector given by server implementation. Empty by default.
     */
     virtual void receiveError(const nghttp2::asio_http2::server::request& req,
-                              std::shared_ptr<std::stringstream> requestBody,
+                              const std::string &requestBody,
                               unsigned int& statusCode,
                               nghttp2::asio_http2::header_map& headers,
                               std::string& responseBody,

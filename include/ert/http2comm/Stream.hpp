@@ -40,7 +40,6 @@ SOFTWARE.
 #pragma once
 
 #include <mutex>
-#include <sstream>
 #include <memory>
 #include <chrono>
 
@@ -78,7 +77,7 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::mutex mutex_;
     const nghttp2::asio_http2::server::request& req_;
     const nghttp2::asio_http2::server::response& res_;
-    std::shared_ptr<std::stringstream> request_body_;
+    std::string request_body_;
     Http2Server *server_;
     bool closed_;
 
@@ -98,8 +97,7 @@ public:
 
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
-           std::shared_ptr<std::stringstream> requestBody,
-           Http2Server *server) : req_(req), res_(res), request_body_(requestBody), server_(server), closed_(false), timer_(nullptr) {}
+           Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), timer_(nullptr) {}
 
     Stream(const Stream&) = delete;
     ~Stream() = default;
@@ -108,6 +106,15 @@ public:
     // nghttp2-asio request structure
     const nghttp2::asio_http2::server::request& getReq() const {
         return req_;
+    }
+
+    // append received data chunk
+    void appendData(const uint8_t* data, std::size_t len) {
+        // std::copy(data, data + len, std::ostream_iterator<std::uint8_t>(*requestBody));
+        //   where we have std::shared_ptr request_body_ = std::make_shared<std::stringstream>();
+        //
+        // BUT: std::string append has better performance than stringstream one (https://gist.github.com/testillano/bc8944eec86fe4e857bf51d61d6c5e42):
+        request_body_.append((const char *)data, len);
     }
 
     // set server sequence

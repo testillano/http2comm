@@ -164,12 +164,8 @@ void Stream::close() {
     );
     server_->responses_delay_seconds_gauge_->Set(durationSeconds);
 
-    // Efficient size calculus (better than request_body_->str().size(), because the string don't have to be built):
-    request_body_->seekg(0, std::ios::end);
-    size_t requestBodySize = request_body_->tellg();
-    //request_body_->seekg(0, std::ios::beg); // restore position (depends on what you will do)
-
     size_t responseBodySize = response_body_.size();
+    size_t requestBodySize = request_body_.size();
 
     server_->messages_size_bytes_rx_gauge_->Set(requestBodySize);
     server_->messages_size_bytes_tx_gauge_->Set(responseBodySize);
