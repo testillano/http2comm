@@ -93,8 +93,6 @@ class Http2Server
     ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
 
-    std::atomic<std::uint64_t> reception_id_{};
-
 protected:
 
     nghttp2::asio_http2::server::http2 server_;
@@ -207,6 +205,26 @@ public:
     * @return Boolean about internal copy of request body received. Default implementation returns 'true'.
     */
     virtual bool receiveDataLen(const nghttp2::asio_http2::server::request& req) {
+        return true;
+    }
+
+    /**
+    * By default, memory to store request data is pre reserved to minimize possible reallocations
+    * when several chunks are received and then appended to the request body. The maximum request
+    * body size registered at a given moment is reserved by design.
+    *
+    * Performance in general is better with this optimization, but specially with huge messages and
+    * low standard deviation of sizes registered. A mixed traffic profile with small messages has
+    * not such an obvious improvement although CPU consumption is not influenced by reservation
+    * amount. Instant memory requirements however, will be higher with the time until the largest
+    * message processed, but this is not a handicap under controlled environments.
+    *
+    * As possible simplification, our server could delegate memory allocation to inner string
+    * container (std::string append()) skipping the memory reservation done before appending data.
+    *
+    * @return Boolean about memory pre reservation. Default implementation returns 'true'.
+    */
+    virtual bool preReserveRequestBody() {
         return true;
     }
 

@@ -52,6 +52,20 @@ namespace ert
 {
 namespace http2comm
 {
+// Monotonically increased sequence for received messages:
+std::atomic<std::uint64_t> Stream::ReceptionId = std::atomic<std::uint64_t>(0);
+
+// Smart reservation algorithm reserve memory for request body string within
+// Stream class according with the maximum value of messages size received:
+std::atomic<std::size_t> Stream::MaximumChunkSize = std::atomic<std::size_t>(0);
+
+Stream::Stream(const nghttp2::asio_http2::server::request& req,
+               const nghttp2::asio_http2::server::response& res,
+               Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), timer_(nullptr) {
+
+    ReceptionId++;
+    if (server_->preReserveRequestBody()) request_body_.reserve(MaximumChunkSize.load());
+}
 
 void Stream::process()
 {
@@ -80,7 +94,7 @@ void Stream::process()
             }
             else
             {
-                server_->receive(reception_id_, req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
+                server_->receive(ReceptionId.load(), req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
             }
         }
         else
@@ -164,8 +178,8 @@ void Stream::close() {
     );
     server_->responses_delay_seconds_gauge_->Set(durationSeconds);
 
-    size_t responseBodySize = response_body_.size();
-    size_t requestBodySize = request_body_.size();
+    std::size_t requestBodySize = request_body_.size();
+    std::size_t responseBodySize = response_body_.size();
 
     server_->messages_size_bytes_rx_gauge_->Set(requestBodySize);
     server_->messages_size_bytes_tx_gauge_->Set(responseBodySize);

@@ -58,7 +58,7 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService), reception_id_(0) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService) {
 
     queue_dispatcher_ = (workerThreads > 1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr;
 }
@@ -199,9 +199,6 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
             }
             else
             {
-                reception_id_++;
-                stream->setReceptionId(reception_id_.load());
-
                 if (queue_dispatcher_) {
                     queue_dispatcher_->dispatch(stream);
                 }

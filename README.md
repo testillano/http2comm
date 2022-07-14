@@ -17,14 +17,14 @@ You could check an example of use at [h2agent](https://github.com/testillano/h2a
 This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
 
 ```bash
-$ docker pull ghcr.io/testillano/http2comm:<tag>
+$> docker pull ghcr.io/testillano/http2comm:<tag>
 ```
 
 You could also build it using the script `./build.sh` located at project root:
 
 
 ```bash
-$ ./build.sh --project-image
+$> ./build.sh --project-image
 ```
 
 This image is built with `./Dockerfile`.
@@ -35,9 +35,9 @@ Both `ubuntu` and `alpine` base images are supported, but the official image upl
 To run compilation over this image, just run with `docker`. The `entrypoint` (check it at `./deps/build.sh`) will fall back from `cmake` (looking for `CMakeLists.txt` file at project root, i.e. mounted on working directory `/code` to generate makefiles) to `make`, in order to build your source code. There are two available environment variables used by the builder script of this image: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`):
 
 ```bash
-$ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
-$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         ghcr.io/testillano/http2comm:<tag>
+$> envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
+$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+          ghcr.io/testillano/http2comm:<tag>
 ```
 
 ## Build project with docker
@@ -47,14 +47,14 @@ $ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
 This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
 
 ```bash
-$ docker pull ghcr.io/testillano/http2comm_builder:<tag>
+$> docker pull ghcr.io/testillano/http2comm_builder:<tag>
 ```
 
 You could also build it using the script `./build.sh` located at project root:
 
 
 ```bash
-$ ./build.sh --builder-image
+$> ./build.sh --builder-image
 ```
 
 This image is built with `./Dockerfile.build`.
@@ -65,23 +65,23 @@ Both `ubuntu` and `alpine` base images are supported, but the official image upl
 Builder image is used to build the project library. To run compilation over this image, again, just run with `docker`:
 
 ```bash
-$ envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
-$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         ghcr.io/testillano/http2comm_builder:<tag>
+$> envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
+$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+          ghcr.io/testillano/http2comm_builder:<tag>
 ```
 
 You could generate documentation passing extra arguments to the [entry point](https://github.com/testillano/nghttp2/blob/master/deps/build.sh) behind:
 
 ```bash
-$ docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-         ghcr.io/testillano/http2comm_builder::<tag>-build "" doc
+$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
+          ghcr.io/testillano/http2comm_builder::<tag>-build "" doc
 ```
 
 You could also build the library using the script `./build.sh` located at project root:
 
 
 ```bash
-$ ./build.sh --project
+$> ./build.sh --project
 ```
 
 ## Build project natively
@@ -89,31 +89,31 @@ $ ./build.sh --project
 This is a cmake-based building library, so you may install cmake:
 
 ```bash
-$ sudo apt-get install cmake
+$> sudo apt-get install cmake
 ```
 
 And then generate the makefiles from project root directory:
 
 ```bash
-$ cmake .
+$> cmake .
 ```
 
 You could specify type of build, 'Debug' or 'Release', for example:
 
 ```bash
-$ cmake -DCMAKE_BUILD_TYPE=Debug .
-$ cmake -DCMAKE_BUILD_TYPE=Release .
+$> cmake -DCMAKE_BUILD_TYPE=Debug .
+$> cmake -DCMAKE_BUILD_TYPE=Release .
 ```
 
 You could also change the compilers used:
 
 ```bash
-$ cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++     -DCMAKE_C_COMPILER=/usr/bin/gcc
+$> cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc
 ```
 or
 
 ```bash
-$ cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
+$> cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
 ```
 
 ### Requirements
@@ -129,24 +129,24 @@ nghttp2 (https://github.com/testillano/nghttp2)
 ### Build
 
 ```bash
-$ make
+$> make
 ```
 
 ### Clean
 
 ```bash
-$ make clean
+$> make clean
 ```
 
 ### Documentation
 
 ```bash
-$ make doc
+$> make doc
 ```
 
 ```bash
-$ cd docs/doxygen
-$ tree -L 1
+$> cd docs/doxygen
+$> tree -L 1
      .
      ├── Doxyfile
      ├── html
@@ -157,20 +157,20 @@ $ tree -L 1
 ### Install
 
 ```bash
-$ sudo make install
+$> sudo make install
 ```
 
 Optionally you could specify another prefix for installation:
 
 ```bash
-$ cmake -DMY_OWN_INSTALL_PREFIX=$HOME/mylibs/ert_http2comm
-$ make install
+$> cmake -DMY_OWN_INSTALL_PREFIX=$HOME/mylibs/ert_http2comm
+$> make install
 ```
 
 ### Uninstall
 
 ```bash
-$ cat install_manifest.txt | sudo xargs rm
+$> cat install_manifest.txt | sudo xargs rm
 ```
 
 ## Integration
@@ -219,7 +219,6 @@ target_link_libraries(foo PRIVATE ert_http2comm::ert_http2comm)
 Please, execute `astyle` formatting (using [frankwolf image](https://hub.docker.com/r/frankwolf/astyle)) before any pull request:
 
 ```bash
-$ sources=$(find . -name "*.hpp" -o -name "*.cpp")
-$ docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
+$> sources=$(find . -name "*.hpp" -o -name "*.cpp")
+$> docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
 ```
-

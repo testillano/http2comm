@@ -39,6 +39,7 @@ SOFTWARE.
 
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <memory>
 #include <chrono>
@@ -87,17 +88,18 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::string response_body_{};
     boost::asio::deadline_timer *timer_{};
 
-    // Server sequence for this stream:
-    std::uint64_t reception_id_{};
-
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
 
+    // Reception id (monotonically increased with every reception):
+    static std::atomic<std::uint64_t> ReceptionId;
+
 public:
+    static std::atomic<std::size_t> MaximumChunkSize; // smart request_body_ reservation
 
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
-           Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), timer_(nullptr) {}
+           Http2Server *server);
 
     Stream(const Stream&) = delete;
     ~Stream() = default;
@@ -115,11 +117,10 @@ public:
         //
         // BUT: std::string append has better performance than stringstream one (https://gist.github.com/testillano/bc8944eec86fe4e857bf51d61d6c5e42):
         request_body_.append((const char *)data, len);
-    }
 
-    // set server sequence
-    void setReceptionId(const std::uint64_t &id) {
-        reception_id_ = id;
+        if (request_body_.size() > MaximumChunkSize.load()) {
+            MaximumChunkSize.store(request_body_.size());
+        }
     }
 
     // Process reception
@@ -131,7 +132,6 @@ public:
     // res.on_close()
     void close();
 };
-
 
 }
 }
