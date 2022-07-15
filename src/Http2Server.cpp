@@ -58,7 +58,7 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timersIoService): name_(name), timers_io_service_(timersIoService), reception_id_(0), maximum_request_body_size_(0) {
 
     queue_dispatcher_ = (workerThreads > 1) ? new QueueDispatcher(name + "_queueDispatcher", workerThreads) : nullptr;
 }
@@ -195,10 +195,19 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
                     // (mutexes does not solves the problem neither std::move of data, and does not matter is shared_ptr requestBody is replaced
                     // by static type; it seems that data is not correctly protected on lower layers, probably tatsuhiro-t nghttp2)
                     stream->appendData(data, len);
+
+                    // Update maximum request body size registered
+                    //if (len > maximum_request_body_size_.load()) { // this allows traffic profile learning
+                    if (preReserveRequestBody() && (len > maximum_request_body_size_.load())) {
+                        maximum_request_body_size_.store(len);
+                    }
                 }
             }
             else
             {
+                reception_id_++;
+                stream->setReceptionId(reception_id_.load());
+
                 if (queue_dispatcher_) {
                     queue_dispatcher_->dispatch(stream);
                 }

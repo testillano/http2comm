@@ -91,12 +91,10 @@ class Stream : public std::enable_shared_from_this<Stream>
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
 
-    // Reception id (monotonically increased with every reception):
-    static std::atomic<std::uint64_t> ReceptionId;
+    // Server sequence id passed to this stream:
+    std::uint64_t reception_id_;
 
 public:
-    static std::atomic<std::size_t> MaximumChunkSize; // smart request_body_ reservation
-
     Stream(const nghttp2::asio_http2::server::request& req,
            const nghttp2::asio_http2::server::response& res,
            Http2Server *server);
@@ -110,18 +108,12 @@ public:
         return req_;
     }
 
-    // append received data chunk
-    void appendData(const uint8_t* data, std::size_t len) {
-        // std::copy(data, data + len, std::ostream_iterator<std::uint8_t>(*requestBody));
-        //   where we have std::shared_ptr request_body_ = std::make_shared<std::stringstream>();
-        //
-        // BUT: std::string append has better performance than stringstream one (https://gist.github.com/testillano/bc8944eec86fe4e857bf51d61d6c5e42):
-        request_body_.append((const char *)data, len);
-
-        if (request_body_.size() > MaximumChunkSize.load()) {
-            MaximumChunkSize.store(request_body_.size());
-        }
+    void setReceptionId(const std::uint64_t &id) {
+        reception_id_ = id;
     }
+
+    // append received data chunk
+    void appendData(const uint8_t* data, std::size_t len);
 
     // Process reception
     void process();

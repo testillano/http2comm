@@ -42,6 +42,7 @@ SOFTWARE.
 #include <string>
 #include <memory>
 #include <chrono>
+#include <atomic>
 
 #include <boost/asio.hpp>
 
@@ -92,6 +93,9 @@ class Http2Server
     ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
     ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
+
+    std::atomic<std::uint64_t> reception_id_{};
+    std::atomic<std::size_t> maximum_request_body_size_{};
 
 protected:
 

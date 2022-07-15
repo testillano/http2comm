@@ -52,19 +52,19 @@ namespace ert
 {
 namespace http2comm
 {
-// Monotonically increased sequence for received messages:
-std::atomic<std::uint64_t> Stream::ReceptionId = std::atomic<std::uint64_t>(0);
-
-// Smart reservation algorithm reserve memory for request body string within
-// Stream class according with the maximum value of messages size received:
-std::atomic<std::size_t> Stream::MaximumChunkSize = std::atomic<std::size_t>(0);
-
 Stream::Stream(const nghttp2::asio_http2::server::request& req,
                const nghttp2::asio_http2::server::response& res,
                Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), timer_(nullptr) {
 
-    ReceptionId++;
-    if (server_->preReserveRequestBody()) request_body_.reserve(MaximumChunkSize.load());
+    if (server_->preReserveRequestBody()) request_body_.reserve(server_->maximum_request_body_size_.load());
+}
+
+void Stream::appendData(const uint8_t* data, std::size_t len) {
+    // std::copy(data, data + len, std::ostream_iterator<std::uint8_t>(*requestBody));
+    //   where we have std::shared_ptr request_body_ = std::make_shared<std::stringstream>();
+    //
+    // BUT: std::string append has better performance than stringstream one (https://gist.github.com/testillano/bc8944eec86fe4e857bf51d61d6c5e42):
+    request_body_.append((const char *)data, len);
 }
 
 void Stream::process()
@@ -94,7 +94,7 @@ void Stream::process()
             }
             else
             {
-                server_->receive(ReceptionId.load(), req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
+                server_->receive(reception_id_, req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
             }
         }
         else
