@@ -138,9 +138,9 @@ void Stream::commit()
     if (timer_) {
         // timer is passed to the lambda to keep it alive (shared pointer not destroyed when it is out of scope):
         timer_->async_wait([self] (const boost::system::error_code&) {
-            self->timer_ = nullptr;
             self->commit();
             delete self->timer_;
+            self->timer_ = nullptr;
         });
     }
     else {
