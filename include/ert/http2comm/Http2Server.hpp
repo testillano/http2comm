@@ -111,7 +111,7 @@ public:
     *  @param timerIoService Optional io service to manage response delays
     */
     Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timerIoService = nullptr);
-    ~Http2Server();
+    virtual ~Http2Server();
 
     // setters
 
