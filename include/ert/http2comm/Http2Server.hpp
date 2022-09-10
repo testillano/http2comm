@@ -291,6 +291,8 @@ public:
     * @param key secure key for HTTP/2 communication.
     * @param cert secure cert for HTTP/2 communication.
     * @param numberThreads nghttp2 server threads (multi client).
+    * @param read activity keep alive period. If server does not receive data in this
+    * period, then it will close the connection. Default value is 1 minute.
     * @param asynchronous boolean for non-blocking server start.
     */
     int serve(const std::string& bind_address,
@@ -298,7 +300,8 @@ public:
               const std::string& key,
               const std::string& cert,
               int numberThreads,
-              bool asynchronous = false);
+              bool asynchronous = false,
+              const boost::posix_time::time_duration &readKeepAlive = boost::posix_time::seconds(60));
 
     /**
     * Gets the timers io service used to manage response delays
@@ -306,6 +309,11 @@ public:
     boost::asio::io_service *getTimersIoService() const {
         return timers_io_service_;
     }
+
+    /**
+    * Server join
+    */
+    int join();
 
     /**
     * Server stop

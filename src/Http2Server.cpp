@@ -235,7 +235,8 @@ int Http2Server::serve(const std::string& bind_address,
                        const std::string& key,
                        const std::string& cert,
                        int numberThreads,
-                       bool asynchronous)
+                       bool asynchronous,
+                       const boost::posix_time::time_duration &readKeepAlive)
 {
     bool secure = !key.empty() && !cert.empty();
 
@@ -243,6 +244,7 @@ int Http2Server::serve(const std::string& bind_address,
 
     server_.handle("/", handler());
     server_.num_threads(numberThreads);
+    server_.read_timeout(readKeepAlive);
 
     if (secure)
     {
@@ -259,7 +261,6 @@ int Http2Server::serve(const std::string& bind_address,
             tls.use_certificate_chain_file(cert);
             nghttp2::asio_http2::server::configure_tls_context_easy(ec, tls);
             server_.listen_and_serve(ec, tls, bind_address, listen_port, asynchronous);
-            if (asynchronous) server_.join();
         }
         catch (const boost::exception& e)
         {
@@ -292,9 +293,35 @@ int Http2Server::serve(const std::string& bind_address,
     return EXIT_SUCCESS;
 }
 
+int Http2Server::join()
+{
+    try
+    {
+        server_.join();
+    }
+    catch (std::exception& e)
+    {
+        ert::tracing::Logger::error(e.what(), ERT_FILE_LOCATION);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
 int Http2Server::stop()
 {
-    server_.stop();
+    try
+    {
+        // stop internal io services
+        for (auto &ii: server_.io_services()) if (!ii->stopped()) ii->stop();
+        server_.stop();
+    }
+    catch (std::exception& e)
+    {
+        ert::tracing::Logger::error(e.what(), ERT_FILE_LOCATION);
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
 
