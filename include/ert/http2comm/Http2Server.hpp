@@ -294,6 +294,8 @@ public:
     * @param read activity keep alive period. If server does not receive data in this
     * period, then it will close the connection. Default value is 1 minute.
     * @param asynchronous boolean for non-blocking server start.
+    *
+    * @return exit code (EXIT_SUCCESS|EXIT_FAILURE)
     */
     int serve(const std::string& bind_address,
               const std::string& listen_port,
