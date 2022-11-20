@@ -47,12 +47,15 @@ namespace http2comm
 {
 
 
-QueueDispatcher::QueueDispatcher(std::string name, size_t thread_cnt) :
-    name_{std::move(name)}, threads_(thread_cnt)
+QueueDispatcher::QueueDispatcher(std::string name, size_t thread_cnt, size_t max_threads) :
+    name_{std::move(name)}, threads_(thread_cnt), max_threads_(max_threads)
 {
-    LOGINFORMATIONAL(ert::tracing::Logger::informational(
-                         ert::tracing::Logger::asString("Creating dispatch queue '%s' with '%zu' threads",
-                                 name_.c_str(), thread_cnt), ERT_FILE_LOCATION));
+    max_threads_ = (max_threads != 0) ? max_threads:thread_cnt;
+
+    LOGINFORMATIONAL(
+        std::string msg = ert::tracing::Logger::asString("Creating dispatch queue '%s' with '%zu' ", name_.c_str(), thread_cnt);
+        msg += (max_threads > thread_cnt) ? ert::tracing::Logger::asString("threads and a maximum of '%zu'.", max_threads_):"fixed threads.";
+        ert::tracing::Logger::informational(msg, ERT_FILE_LOCATION));
 
     for (size_t i = 0; i < threads_.size(); i++)
     {
@@ -81,6 +84,11 @@ QueueDispatcher::~QueueDispatcher()
             threads_[i].join();
         }
     }
+}
+
+void QueueDispatcher::create_thread(void)
+{
+    threads_.push_back(std::thread(&QueueDispatcher::dispatch_thread_handler, this));
 }
 
 void QueueDispatcher::dispatch_thread_handler(void)
@@ -118,6 +126,11 @@ void QueueDispatcher::dispatch_thread_handler(void)
 
 void QueueDispatcher::dispatch(std::shared_ptr<Stream> st)
 {
+    if (busy_threads_.load() == threads_.size() && threads_.size() < max_threads_)
+    {
+        create_thread();
+    }
+
     std::unique_lock<std::mutex> lock(lock_);
     //    q_.push(std::move(st));
     //

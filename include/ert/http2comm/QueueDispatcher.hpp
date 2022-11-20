@@ -57,7 +57,7 @@ namespace http2comm
 class QueueDispatcher
 {
 public:
-    QueueDispatcher(std::string name, size_t thread_cnt);
+    QueueDispatcher(std::string name, size_t thread_cnt, size_t max_threads = 0 /* special case where maximum is the total thread count (freeze threads) */);
     ~QueueDispatcher();
 
     void dispatch(std::shared_ptr<Stream>);
@@ -72,11 +72,14 @@ public:
         return busy_threads_.load();
     }
 
+    void create_thread();
+
 private:
     std::string name_;
     std::mutex lock_;
     std::vector<std::thread> threads_;
     std::atomic<int> busy_threads_{0};
+    size_t max_threads_;
     std::queue<std::shared_ptr<Stream>> q_;
     std::condition_variable cv_;
     bool quit_ = false;

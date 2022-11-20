@@ -108,9 +108,10 @@ public:
     *
     *  @param name Server name.
     *  @param workerThreads number of worker threads.
+    *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
     *  @param timerIoService Optional io service to manage response delays
     */
-    Http2Server(const std::string& name, size_t workerThreads, boost::asio::io_service *timerIoService = nullptr);
+    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr);
     virtual ~Http2Server();
 
     // setters
