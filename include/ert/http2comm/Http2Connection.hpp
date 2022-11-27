@@ -82,9 +82,6 @@ public:
     // Seccion factory with io_service, host, port and secure inputs:
     nghttp2::asio_http2::client::session createSession(boost::asio::io_service &ioService, const std::string &host, const std::string &port, bool secure);
 
-    // Set on_connect/on_error session callbacks
-    void configureSession();
-
 public:
     /// Class constructors
 
@@ -172,6 +169,13 @@ public:
     const Status& getStatus() const;
 
     /**
+     * Returns true if connection is opened
+     *
+     * \return Http2Connection status opened
+     */
+    bool isConnected() const;
+
+    /**
      * Waits while the connection is in progress
      *
      * \return true if connected and false if the connection could not be established
@@ -199,18 +203,15 @@ public:
     void onClose(connection_callback connection_closed_callback);
 
     /**
-    * Reconnection procedure
-    */
-    void reconnect();
-
-
-    /**
     * Class string representation
     */
     std::string asString() const;
 
 private:
     /// Internal methods
+
+    // Set on_connect/on_error session callbacks
+    void configureSession();
 
     /**
      * Performs actual close of the connection
@@ -227,8 +228,7 @@ private:
     /// ASIO attributes
     boost::asio::io_service io_service_;
     boost::asio::io_service::work work_;
-    nghttp2::asio_http2::client::session *session_; // session is non-copyable, so we will use this pointer
-    // to allow recreating the session (reconnect feature).
+    nghttp2::asio_http2::client::session session_;
 
     /// Class attributes
     Status status_;

@@ -45,7 +45,6 @@ SOFTWARE.
 
 #include <ert/http2comm/Http2Headers.hpp>
 #include <ert/http2comm/Http2Client.hpp>
-#include <ert/http2comm/Http2Connection.hpp>
 
 namespace
 {
@@ -62,57 +61,56 @@ namespace ert
 {
 namespace http2comm
 {
-Http2Client::Http2Client(std::shared_ptr<Http2Connection>
-                         connection,
-                         const std::chrono::milliseconds& request_timeout) :
-    connection_(connection), request_timeout_(request_timeout)
+Http2Client::Http2Client(const std::string& host, const std::string& port, bool secure)
+    : host_(host),
+      port_(port),
+      secure_(secure),
+      connection_(std::make_unique<Http2Connection>(host, port, secure))
 {
+
+    if (!connection_->waitToBeConnected())
+    {
+        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to connect '%s'", connection_->asString().c_str()), ERT_FILE_LOCATION));
+    }
 }
 
-Http2Client::Http2Client(const std::chrono::milliseconds&
-                         request_timeout) :
-    request_timeout_(request_timeout)
+void Http2Client::reconnect()
 {
-}
+    if (!mutex_.try_lock())
+    {
+        return;
+    }
+    connection_.reset();
 
-void Http2Client::setHttp2Connection(
-    std::shared_ptr<Http2Connection>
-    connection)
-{
-    connection_ = connection;
-}
-
-std::shared_ptr<Http2Connection>
-Http2Client::getHttp2Connection()
-{
-    return connection_;
+    if (auto conn = std::make_unique<Http2Connection>(host_, port_, secure_);
+            conn->waitToBeConnected())
+    {
+        connection_ = std::move(conn);
+    }
+    else
+    {
+        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to reconnect '%s'", conn->asString().c_str()), ERT_FILE_LOCATION));
+        conn.reset();
+    }
+    mutex_.unlock();
 }
 
 Http2Client::response Http2Client::send(
     const Http2Client::Method &method,
-    const std::string &uri,
+    const std::string &path,
     const std::string &body,
-    const nghttp2::asio_http2::header_map &headers)
+    const nghttp2::asio_http2::header_map &headers,
+    const std::chrono::milliseconds& requestTimeout)
 {
-    // Internal Server Error response if connection not initialized
-    if (!connection_)
+    if (!connection_->isConnected())
     {
-        LOGINFORMATIONAL(ert::tracing::Logger::informational("There must be a connection instance !", ERT_FILE_LOCATION));
-        return Http2Client::response{"", 500};
-    }
-    if (connection_->getStatus() != Http2Connection::Status::OPEN)
-    {
-        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connection must be OPEN to send request (%s) !", connection_->asString().c_str()), ERT_FILE_LOCATION));
+        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connection must be OPEN to send request (%s) ! Reconnection ongoing ...", connection_->asString().c_str()), ERT_FILE_LOCATION));
 
-        connection_->reconnect();
-        connection_->waitToBeConnected();
-        if (connection_->getStatus() != Http2Connection::Status::OPEN) {
-            LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to reconnect '%s'", connection_->asString().c_str()), ERT_FILE_LOCATION));
-            return Http2Client::response{"", 503};
-        }
+        reconnect();
+        return Http2Client::response{"", -1};
     }
 
-    auto url = getUri(uri);
+    auto url = getUri(path);
     auto method_str = ::method_to_str[method];
 
     LOGINFORMATIONAL(
@@ -123,10 +121,11 @@ Http2Client::response Http2Client::send(
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
                            const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
     {
+
         return sess.submit(ec, method_str, url, body, headers);
     };
 
-    auto& session = connection_->getSession();
+    const auto& session = connection_->getSession();
     auto task = std::make_shared<Http2Client::task>();
 
     session.io_service().post([&, task, headers]
@@ -170,7 +169,7 @@ Http2Client::response Http2Client::send(
     });
 
     //waits until 'done' (future) is available using the timeout
-    if (task->done.wait_for(request_timeout_) == std::future_status::timeout)
+    if (task->done.wait_for(requestTimeout) == std::future_status::timeout)
     {
         ert::tracing::Logger::error("Request has timed out", ERT_FILE_LOCATION);
         return Http2Client::response();
@@ -182,7 +181,7 @@ Http2Client::response Http2Client::send(
 
 }
 
-std::string Http2Client::getUri(const std::string& uri, const std::string &scheme)
+std::string Http2Client::getUri(const std::string& path, const std::string &scheme)
 {
     std::string result{};
 
@@ -197,13 +196,13 @@ std::string Http2Client::getUri(const std::string& uri, const std::string &schem
     }
 
     result += "://" + connection_->getHost() + ":" + connection_->getPort();
-    if (uri.empty()) return result;
+    if (path.empty()) return result;
 
-    if (uri[0] != '/') {
+    if (path[0] != '/') {
         result += "/";
     }
 
-    result += uri;
+    result += path;
 
     return result;
 }

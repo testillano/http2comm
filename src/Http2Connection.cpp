@@ -70,14 +70,14 @@ nghttp2::asio_http2::client::session Http2Connection::createSession(boost::asio:
 }
 
 void Http2Connection::configureSession() {
-    session_->on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
+    session_.on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
     {
         status_ = Status::OPEN;
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connected to '%s'", asString().c_str()), ERT_FILE_LOCATION));
         status_change_cond_var_.notify_one();
     });
 
-    session_->on_error([this](const boost::system::error_code & ec)
+    session_.on_error([this](const boost::system::error_code & ec)
     {
         notifyClose();
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Error on '%s'", asString().c_str()), ERT_FILE_LOCATION));
@@ -92,7 +92,7 @@ Http2Connection::Http2Connection(const std::string& host,
     host_(host),
     port_(port),
     secure_(secure),
-    session_(new nghttp2::asio_http2::client::session(createSession(io_service_, host, port, secure)))
+    session_(nghttp2::asio_http2::client::session(createSession(io_service_, host, port, secure)))
 {
     configureSession();
     thread_ = std::thread([&] { io_service_.run(); });
@@ -124,23 +124,21 @@ void Http2Connection::closeImpl()
         thread_.join();
     }
 
-    if (status_ == Status::OPEN)
+    if (isConnected())
     {
-        if(session_) session_->shutdown();
+        session_.shutdown();
     }
-
-    delete(session_);
 }
 
 void Http2Connection::close()
 {
-    closeImpl();
+    session_.shutdown();
     notifyClose();
 }
 
 nghttp2::asio_http2::client::session& Http2Connection::getSession()
 {
-    return *session_;
+    return session_;
 }
 
 const std::string& Http2Connection::getHost() const
@@ -165,16 +163,21 @@ const
     return status_;
 }
 
+bool Http2Connection::isConnected() const {
+    return (status_ == Http2Connection::Status::OPEN);
+}
+
+
 bool Http2Connection::waitToBeConnected()
 {
     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString("waitToBeConnected() to '%s'", asString().c_str()),  ERT_FILE_LOCATION));
 
     std::unique_lock<std::mutex> lock(mutex_);
-    status_change_cond_var_.wait(lock, [&]
+    status_change_cond_var_.wait_for(lock, std::chrono::duration<int, std::milli>(2000), [&]
     {
         return (status_ != Http2Connection::Status::NOT_OPEN);
     });
-    return (status_ == Http2Connection::Status::OPEN);
+    return isConnected();
 }
 
 bool Http2Connection::waitToBeDisconnected(const
@@ -185,7 +188,7 @@ bool Http2Connection::waitToBeDisconnected(const
     std::unique_lock<std::mutex> lock(mutex_);
     return status_change_cond_var_.wait_for(lock, time, [&]
     {
-        return (status_ != Http2Connection::Status::OPEN);
+        return (!isConnected());
     });
 }
 
@@ -193,17 +196,6 @@ void Http2Connection::onClose(connection_callback
                               connection_closed_callback)
 {
     connection_closed_callback_ = connection_closed_callback;
-}
-
-void Http2Connection::reconnect()
-{
-    LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Reconnecting to '%s'", asString().c_str()), ERT_FILE_LOCATION));
-
-    std::unique_lock<std::mutex> lock(mutex_); // consider shared_mutex
-    delete(session_);
-    status_ = Status::NOT_OPEN;
-    session_ = new nghttp2::asio_http2::client::session(createSession(io_service_, host_, port_, secure_));
-    configureSession();
 }
 
 std::string Http2Connection::asString() const {

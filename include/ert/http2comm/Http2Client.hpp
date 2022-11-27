@@ -42,8 +42,12 @@ SOFTWARE.
 #include <string>
 #include <future>
 #include <memory>
+#include <shared_mutex>
 
 #include <nghttp2/asio_http2.h>
+
+#include <ert/http2comm/Http2Connection.hpp>
+
 
 namespace nghttp2
 {
@@ -90,7 +94,7 @@ public:
     struct response
     {
         std::string body;
-        int statusCode;
+        int statusCode; // -1 = connection error
         nghttp2::asio_http2::header_map headers;
     };
 
@@ -109,26 +113,41 @@ private:
 
     //class members
 public:
-    Http2Client(std::shared_ptr<Http2Connection> connection,
-                const std::chrono::milliseconds& request_timeout = std::chrono::milliseconds(
-                            1000));
-    Http2Client(const std::chrono::milliseconds& request_timeout =
-                    std::chrono::milliseconds(
-                        1000));
+    /**
+     * Class constructor given host, port and secure connection indicator
+     *
+     * @param host Endpoint host
+     * @param port Endpoint port
+     * @param secure Secure connection. False by default
+     */
+    Http2Client(const std::string& host, const std::string& port, bool secure = false);
     virtual ~Http2Client() {};
 
-    virtual void setHttp2Connection(std::shared_ptr<Http2Connection> connection);
-    virtual std::shared_ptr<Http2Connection> getHttp2Connection();
+    /**
+     * Send request to the server
+     *
+     * @param method Request method
+     * @param path Request uri path including optional query parameters
+     * @param body Request body
+     * @param headers Request headers
+     * @param requestTimeout Request timeout, 1 second by default
+     *
+     * @return Response structure. Status code -1 means connection error.
+     */
     virtual Http2Client::response send(const Http2Client::Method &method,
-                                       const std::string &uri,
+                                       const std::string &path,
                                        const std::string &body,
-                                       const nghttp2::asio_http2::header_map &headers);
+                                       const nghttp2::asio_http2::header_map &headers,
+                                       const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
 private:
-    std::shared_ptr<Http2Connection> connection_;
-    const std::chrono::milliseconds request_timeout_;
-    const std::string host_;
+    std::unique_ptr<Http2Connection> connection_;
+    std::string host_;
+    std::string port_;
+    bool secure_;
+    std::shared_timed_mutex mutex_;
 
-    std::string getUri(const std::string &uri, const std::string &scheme = "" /* http or https by default, but could be forced here */);
+    void reconnect();
+    std::string getUri(const std::string &path, const std::string &scheme = "" /* http or https by default, but could be forced here */);
 };
 
 }
