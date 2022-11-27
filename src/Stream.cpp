@@ -36,7 +36,6 @@ LIABILITY, WHETHER IN AN ACTION OF  CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 #include <nghttp2/asio_http2_server.h>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -54,7 +53,7 @@ namespace http2comm
 {
 Stream::Stream(const nghttp2::asio_http2::server::request& req,
                const nghttp2::asio_http2::server::response& res,
-               Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), timer_(nullptr) {
+               Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), error_(false), timer_(nullptr) {
 
     if (server_->preReserveRequestBody()) request_body_.reserve(server_->maximum_request_body_size_.load());
 }
@@ -133,33 +132,40 @@ void Stream::process()
 
 void Stream::commit()
 {
-    auto self = shared_from_this();
-
-    if (timer_) {
-        // timer is passed to the lambda to keep it alive (shared pointer not destroyed when it is out of scope):
-        timer_->async_wait([self] (const boost::system::error_code&) {
-            self->commit();
-            delete self->timer_;
-            self->timer_ = nullptr;
+    if (timer_)
+    {
+        timer_->async_wait([&] (const boost::system::error_code&) {
+            delete timer_;
+            timer_ = nullptr;
+            commit();
         });
+        return;
     }
-    else {
-        // Send response
-        res_.io_service().post([self]()
+
+    // Maybe transport is broken
+    if (error_) {
+        LOGWARNING(ert::tracing::Logger::warning("Discarding response over broken connection", ERT_FILE_LOCATION));
+        return;
+    }
+
+    auto self = this;
+    //auto self = shared_from_this();
+
+    // Send response
+    res_.io_service().post([self]()
+    {
+        std::lock_guard<std::mutex> guard(self->mutex_);
+        if (self->closed_)
         {
-            std::lock_guard<std::mutex> guard(self->mutex_);
-            if (self->closed_)
-            {
-                return;
-            }
+            return;
+        }
 
-            // WORKER THREAD PROCESSING CANNOT BE DONE HERE
-            // (nghttp2 pool must be free), SO, IT WILL BE
-            // DONE BEFORE commit()
-            self->res_.write_head(self->status_code_, self->response_headers_);
-            self->res_.end(self->response_body_);
-        });
-    }
+        // WORKER THREAD PROCESSING CANNOT BE DONE HERE
+        // (nghttp2 pool must be free), SO, IT WILL BE
+        // DONE BEFORE commit()
+        self->res_.write_head(self->status_code_, self->response_headers_);
+        self->res_.end(self->response_body_);
+    });
 }
 
 void Stream::close() {
@@ -208,6 +214,11 @@ void Stream::close() {
     else {
         server_->observed_requests_other_counter_->Increment();
     }
+}
+
+void Stream::error() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    error_ = true;
 }
 
 }

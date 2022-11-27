@@ -73,7 +73,8 @@ class Http2Server;
  *
  * @see https://gist.github.com/tatsuhiro-t/ba3f7d72d037027ae47b
  */
-class Stream : public std::enable_shared_from_this<Stream>
+class Stream
+//class Stream : public std::enable_shared_from_this<Stream>
 {
     std::mutex mutex_;
     const nghttp2::asio_http2::server::request& req_;
@@ -81,6 +82,7 @@ class Stream : public std::enable_shared_from_this<Stream>
     std::string request_body_;
     Http2Server *server_;
     bool closed_;
+    bool error_; // error detected on stream transport
 
     // Response (members calculated at process()):
     unsigned int status_code_{};
@@ -123,6 +125,8 @@ public:
 
     // res.on_close()
     void close();
+
+    void error();
 };
 
 }
