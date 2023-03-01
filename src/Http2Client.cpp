@@ -207,6 +207,18 @@ std::string Http2Client::getUri(const std::string& path, const std::string &sche
     return result;
 }
 
+
+std::string Http2Client::getConnectionStatus() const {
+
+    std::string result{};
+
+    if (connection_->getStatus() == ert::http2comm::Http2Connection::Status::NOT_OPEN) result = "NotOpen";
+    else if (connection_->getStatus() == ert::http2comm::Http2Connection::Status::OPEN) result = "Open";
+    else if (connection_->getStatus() == ert::http2comm::Http2Connection::Status::CLOSED) result = "Closed";
+
+    return result;
+}
+
 }
 }
 

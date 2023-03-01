@@ -139,6 +139,14 @@ public:
                                        const std::string &body,
                                        const nghttp2::asio_http2::header_map &headers,
                                        const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
+
+    /*
+     * Gets connection status string
+     *
+     * @return string with connection status (NotOpen, Open, Closed)
+     */
+    std::string getConnectionStatus() const;
+
 private:
     std::unique_ptr<Http2Connection> connection_;
     std::string host_;
