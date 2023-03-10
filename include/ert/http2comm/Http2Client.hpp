@@ -109,6 +109,7 @@ private:
         std::promise<Http2Client::response> response;
         std::future<Http2Client::response> done;
         std::string data; //buffer to store a possible temporary data
+        bool timed_out{};
     };
 
     //class members
@@ -132,13 +133,19 @@ public:
      * @param headers Request headers
      * @param requestTimeout Request timeout, 1 second by default
      *
-     * @return Response structure. Status code -1 means connection error.
+     * @return Response structure. Status code -1 means connection error, and -2 means timeout.
      */
     virtual Http2Client::response send(const Http2Client::Method &method,
                                        const std::string &path,
                                        const std::string &body,
                                        const nghttp2::asio_http2::header_map &headers,
                                        const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
+
+    /*
+     * Callback for request send expiration.
+     * Default implementation does nothing.
+     */
+    virtual void responseTimeout() {;}
 
     /*
      * Gets connection status string
