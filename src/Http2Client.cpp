@@ -102,9 +102,12 @@ Http2Client::response Http2Client::send(
     const nghttp2::asio_http2::header_map &headers,
     const std::chrono::milliseconds& requestTimeout)
 {
-    if (!connection_->isConnected())
+    if (!connection_ || !connection_->isConnected())
     {
-        LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connection must be OPEN to send request (%s) ! Reconnection ongoing ...", connection_->asString().c_str()), ERT_FILE_LOCATION));
+        LOGINFORMATIONAL(
+            std::string msg = ert::tracing::Logger::asString("Connection must be OPEN to send request. Reconnection ongoing to %s:%s%s ...", host_.c_str(), port_.c_str(), (secure_ ? " (secured)":""));
+            ert::tracing::Logger::informational(msg, ERT_FILE_LOCATION);
+        );
 
         reconnect();
         return Http2Client::response{"", -1};
@@ -140,9 +143,23 @@ Http2Client::response Http2Client::send(
 
         //perform submit
         auto req = submit(session, headers, ec);
+        if (!req) {
+            ert::tracing::Logger::error("Request submit error, closing connection ...", ERT_FILE_LOCATION);
+            connection_->close();
+            // TODO OAM: client error, 468 (non-standard http status code)
+            return;
+        }
+
         req->on_response(
             [task](const nghttp2::asio_http2::client::response & res)
         {
+            if (task->timed_out) {
+                LOGINFORMATIONAL(
+                    ert::tracing::Logger::informational("Answer received for discarded transaction due to timeout. Ignoring ...", ERT_FILE_LOCATION);
+                );
+                return;
+            }
+
             res.on_data(
                 [task, &res](const uint8_t* data, std::size_t len)
             {
@@ -168,11 +185,15 @@ Http2Client::response Http2Client::send(
         });
     });
 
-    //waits until 'done' (future) is available using the timeout
+    // waits until 'done' (future) is available using the timeout
     if (task->done.wait_for(requestTimeout) == std::future_status::timeout)
     {
-        ert::tracing::Logger::error("Request has timed out", ERT_FILE_LOCATION);
-        return Http2Client::response();
+        LOGINFORMATIONAL(
+            ert::tracing::Logger::informational("Request has timed out", ERT_FILE_LOCATION);
+        );
+        responseTimeout();
+        task->timed_out = true;
+        return Http2Client::response{"", -2};
     }
     else
     {
@@ -211,6 +232,8 @@ std::string Http2Client::getUri(const std::string& path, const std::string &sche
 std::string Http2Client::getConnectionStatus() const {
 
     std::string result{};
+
+    if (!connection_) return "NoConnectionCreated";
 
     if (connection_->getStatus() == ert::http2comm::Http2Connection::Status::NOT_OPEN) result = "NotOpen";
     else if (connection_->getStatus() == ert::http2comm::Http2Connection::Status::OPEN) result = "Open";
