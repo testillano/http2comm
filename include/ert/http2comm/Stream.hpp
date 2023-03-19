@@ -94,7 +94,7 @@ class Stream
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
 
     // Server sequence id passed to this stream:
-    std::uint64_t reception_id_;
+    std::uint64_t reception_id_{};
 
 public:
     Stream(const nghttp2::asio_http2::server::request& req,
