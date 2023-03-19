@@ -236,7 +236,7 @@ public:
     /**
     * Virtual reception callback. Implementation is mandatory.
     *
-    * @param receptionId server reception identifier (monotonically increased value).
+    * @param receptionId server reception identifier (monotonically increased value in every reception, from 1 to N).
     * @param req nghttp2-asio request structure.
     * @param requestBody request body received.
     * @param receptionTimestampUs microseconds timestamp of reception.

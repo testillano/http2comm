@@ -135,11 +135,11 @@ public:
      *
      * @return Response structure. Status code -1 means connection error, and -2 means timeout.
      */
-    virtual Http2Client::response send(const Http2Client::Method &method,
-                                       const std::string &path,
-                                       const std::string &body,
-                                       const nghttp2::asio_http2::header_map &headers,
-                                       const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
+    Http2Client::response send(const Http2Client::Method &method,
+                               const std::string &path,
+                               const std::string &body,
+                               const nghttp2::asio_http2::header_map &headers,
+                               const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
 
     /*
      * Callback for request send expiration.
