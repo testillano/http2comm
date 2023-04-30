@@ -86,11 +86,6 @@ class Http2Client
     //inner classes
 public:
 
-    enum class Method
-    {
-        POST, GET, PUT, DELETE, HEAD
-    };
-
     struct response
     {
         std::string body;
@@ -127,7 +122,7 @@ public:
     /**
      * Send request to the server
      *
-     * @param method Request method
+     * @param method Request method (POST, GET, PUT, DELETE, HEAD)
      * @param path Request uri path including optional query parameters
      * @param body Request body
      * @param headers Request headers
@@ -135,7 +130,7 @@ public:
      *
      * @return Response structure. Status code -1 means connection error, and -2 means timeout.
      */
-    Http2Client::response send(const Http2Client::Method &method,
+    Http2Client::response send(const std::string &method,
                                const std::string &path,
                                const std::string &body,
                                const nghttp2::asio_http2::header_map &headers,
