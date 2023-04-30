@@ -46,16 +46,6 @@ SOFTWARE.
 #include <ert/http2comm/Http2Headers.hpp>
 #include <ert/http2comm/Http2Client.hpp>
 
-namespace
-{
-std::map<ert::http2comm::Http2Client::Method, std::string> method_to_str = {
-    { ert::http2comm::Http2Client::Method::POST, "POST" },
-    { ert::http2comm::Http2Client::Method::GET, "GET" },
-    { ert::http2comm::Http2Client::Method::PUT, "PUT" },
-    { ert::http2comm::Http2Client::Method::DELETE, "DELETE" },
-    { ert::http2comm::Http2Client::Method::HEAD, "HEAD" }
-};
-}
 
 namespace ert
 {
@@ -96,7 +86,7 @@ void Http2Client::reconnect()
 }
 
 Http2Client::response Http2Client::send(
-    const Http2Client::Method &method,
+    const std::string &method,
     const std::string &path,
     const std::string &body,
     const nghttp2::asio_http2::header_map &headers,
@@ -114,18 +104,17 @@ Http2Client::response Http2Client::send(
     }
 
     auto url = getUri(path);
-    auto method_str = ::method_to_str[method];
 
     LOGINFORMATIONAL(
         ert::tracing::Logger::informational(ert::tracing::Logger::asString("Sending %s request to url: %s; body: %s; headers: %s; %s",
-                                            method_str.c_str(), url.c_str(), body.c_str(), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
+                                            method.c_str(), url.c_str(), body.c_str(), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
     );
 
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
                            const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
     {
 
-        return sess.submit(ec, method_str, url, body, headers);
+        return sess.submit(ec, method, url, body, headers);
     };
 
     const auto& session = connection_->getSession();
