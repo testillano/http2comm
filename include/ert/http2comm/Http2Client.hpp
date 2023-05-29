@@ -48,6 +48,7 @@ SOFTWARE.
 
 #include <ert/http2comm/Http2Connection.hpp>
 
+#include <ert/metrics/Metrics.hpp>
 
 namespace nghttp2
 {
@@ -91,6 +92,8 @@ public:
         std::string body;
         int statusCode; // -1 = connection error
         nghttp2::asio_http2::header_map headers;
+        std::chrono::microseconds sendingUs;
+        std::chrono::microseconds receptionUs;
     };
 
 private:
@@ -105,19 +108,65 @@ private:
         std::future<Http2Client::response> done;
         std::string data; //buffer to store a possible temporary data
         bool timed_out{};
+        std::chrono::microseconds sendingUs;
+        std::chrono::microseconds receptionUs;
     };
 
-    //class members
+    std::string name_{}; // used for metrics:
+    // Metric names should be in lowercase and separated by underscores (_).
+    // Metric names should start with a letter or an underscore (_).
+    // Metric names should be descriptive and meaningful for their purpose.
+    // Metric names should not be too long or too short.
+
+    // metrics:
+    ert::metrics::Metrics *metrics_{};
+
+    ert::metrics::counter_t *observed_requests_post_counter_{};
+    ert::metrics::counter_t *observed_requests_get_counter_{};
+    ert::metrics::counter_t *observed_requests_put_counter_{};
+    ert::metrics::counter_t *observed_requests_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_head_counter_{};
+    ert::metrics::counter_t *observed_requests_other_counter_{};
+    ert::metrics::counter_t *observed_requests_error_post_counter_{};
+    ert::metrics::counter_t *observed_requests_error_get_counter_{};
+    ert::metrics::counter_t *observed_requests_error_put_counter_{};
+    ert::metrics::counter_t *observed_requests_error_delete_counter_{};
+    ert::metrics::counter_t *observed_requests_error_head_counter_{};
+    ert::metrics::counter_t *observed_requests_error_other_counter_{};
+
+    ert::metrics::gauge_t *responses_delay_seconds_gauge_{};
+    ert::metrics::gauge_t *messages_size_bytes_rx_gauge_{};
+    ert::metrics::gauge_t *messages_size_bytes_tx_gauge_{};
+
+    ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
+    ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
+    ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
+
+    std::atomic<std::uint64_t> reception_id_{};
+    std::atomic<std::size_t> maximum_request_body_size_{};
+
 public:
     /**
      * Class constructor given host, port and secure connection indicator
      *
+     * @param name Client name (lower case, as it is used to name prometheus metrics).
      * @param host Endpoint host
      * @param port Endpoint port
      * @param secure Secure connection. False by default
      */
-    Http2Client(const std::string& host, const std::string& port, bool secure = false);
+    Http2Client(const std::string &name, const std::string& host, const std::string& port, bool secure = false);
     virtual ~Http2Client() {};
+
+    /**
+    * Enable metrics
+    *
+    *  @param metrics Optional metrics object to compute counters and histograms
+    *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
+    *  @param messageSizeBytesHistogramBucketBoundaries Optional bucket boundaries for message size bytes histogram
+    */
+    void enableMetrics(ert::metrics::Metrics *metrics,
+                       const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries = {},
+                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {});
 
     /**
      * Send request to the server
