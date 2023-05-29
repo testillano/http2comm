@@ -62,7 +62,11 @@ namespace http2comm
 class Http2Server
 {
     std::string server_key_password_{};
-    std::string name_{};
+    std::string name_{}; // used for metrics:
+    // Metric names should be in lowercase and separated by underscores (_).
+    // Metric names should start with a letter or an underscore (_).
+    // Metric names should be descriptive and meaningful for their purpose.
+    // Metric names should not be too long or too short.
     std::string api_name_{};
     std::string api_version_{};
     boost::asio::io_service *timers_io_service_;
@@ -106,7 +110,7 @@ public:
     /**
     *  Class constructor
     *
-    *  @param name Server name.
+    *  @param name Server name (lower case, as it is used to name prometheus metrics).
     *  @param workerThreads number of worker threads.
     *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
     *  @param timerIoService Optional io service to manage response delays

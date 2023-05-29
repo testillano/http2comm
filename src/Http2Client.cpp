@@ -51,8 +51,9 @@ namespace ert
 {
 namespace http2comm
 {
-Http2Client::Http2Client(const std::string& host, const std::string& port, bool secure)
-    : host_(host),
+Http2Client::Http2Client(const std::string& name, const std::string& host, const std::string& port, bool secure)
+    : name_(name),
+      host_(host),
       port_(port),
       secure_(secure),
       connection_(std::make_unique<Http2Connection>(host, port, secure))
@@ -61,6 +62,43 @@ Http2Client::Http2Client(const std::string& host, const std::string& port, bool 
     if (!connection_->waitToBeConnected())
     {
         LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to connect '%s'", connection_->asString().c_str()), ERT_FILE_LOCATION));
+    }
+}
+
+void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
+                                const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries,
+                                const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries) {
+
+    metrics_ = metrics;
+
+    if (metrics_) {
+        ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
+        observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
+        observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));
+        observed_requests_put_counter_ = &(cf.Add({{"method", "PUT"}}));
+        observed_requests_delete_counter_ = &(cf.Add({{"method", "DELETE"}}));
+        observed_requests_head_counter_ = &(cf.Add({{"method", "HEAD"}}));
+        observed_requests_other_counter_ = &(cf.Add({{"method", "other"}}));
+        observed_requests_error_post_counter_ = &(cf.Add({{"success", "false"}, {"method", "POST"}}));
+        observed_requests_error_get_counter_ = &(cf.Add({{"success", "false"}, {"method", "GET"}}));
+        observed_requests_error_put_counter_ = &(cf.Add({{"success", "false"}, {"method", "PUT"}}));
+        observed_requests_error_delete_counter_ = &(cf.Add({{"success", "false"}, {"method", "DELETE"}}));
+        observed_requests_error_head_counter_ = &(cf.Add({{"success", "false"}, {"method", "HEAD"}}));
+        observed_requests_error_other_counter_ = &(cf.Add({{"success", "false"}, {"method", "other"}}));
+
+        ert::metrics::gauge_family_ref_t gf1 = metrics->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_);
+        responses_delay_seconds_gauge_ = &(gf1.Add({}));
+
+        ert::metrics::gauge_family_ref_t gf2 = metrics->addGaugeFamily(name_ + std::string("_messages_size_bytes_gauge"), std::string("Http2 message sizes gauge (bytes) in ") + name_);
+        messages_size_bytes_rx_gauge_ = &(gf2.Add({{"direction", "rx"}}));
+        messages_size_bytes_tx_gauge_ = &(gf2.Add({{"direction", "tx"}}));
+
+        ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay (seconds) in ") + name_);
+        responses_delay_seconds_histogram_ = &(hf1.Add({}, responseDelaySecondsHistogramBucketBoundaries));
+
+        ert::metrics::histogram_family_ref_t hf2 = metrics->addHistogramFamily(name_ + std::string("_messages_size_bytes_histogram"), std::string("Http2 message sizes (bytes) in ") + name_);
+        messages_size_bytes_rx_histogram_ = &(hf2.Add({{"direction", "rx"}}, messageSizeBytesHistogramBucketBoundaries));
+        messages_size_bytes_tx_histogram_ = &(hf2.Add({{"direction", "tx"}}, messageSizeBytesHistogramBucketBoundaries));
     }
 }
 
@@ -100,7 +138,58 @@ Http2Client::response Http2Client::send(
         );
 
         reconnect();
+
+        // metrics
+        if (metrics_) {
+            // counters
+            if (method == "POST") {
+                observed_requests_error_post_counter_->Increment();
+            }
+            else if (method == "GET") {
+                observed_requests_error_get_counter_->Increment();
+            }
+            else if (method == "PUT") {
+                observed_requests_error_put_counter_->Increment();
+            }
+            else if (method == "DELETE") {
+                observed_requests_error_delete_counter_->Increment();
+            }
+            else if (method == "HEAD") {
+                observed_requests_error_head_counter_->Increment();
+            }
+            else {
+                observed_requests_error_other_counter_->Increment();
+            }
+        }
+
         return Http2Client::response{"", -1};
+    }
+
+    // metrics
+    if (metrics_) {
+        // counters
+        if (method == "POST") {
+            observed_requests_post_counter_->Increment();
+        }
+        else if (method == "GET") {
+            observed_requests_get_counter_->Increment();
+        }
+        else if (method == "PUT") {
+            observed_requests_put_counter_->Increment();
+        }
+        else if (method == "DELETE") {
+            observed_requests_delete_counter_->Increment();
+        }
+        else if (method == "HEAD") {
+            observed_requests_head_counter_->Increment();
+        }
+        else {
+            observed_requests_other_counter_->Increment();
+        }
+
+        std::size_t requestBodySize = body.size();
+        messages_size_bytes_rx_gauge_->Set(requestBodySize);
+        messages_size_bytes_rx_histogram_->Observe(requestBodySize);
     }
 
     auto url = getUri(path);
@@ -120,7 +209,7 @@ Http2Client::response Http2Client::send(
     const auto& session = connection_->getSession();
     auto task = std::make_shared<Http2Client::task>();
 
-    session.io_service().post([&, task, headers]
+    session.io_service().post([&, task, headers, this]
     {
         boost::system::error_code ec;
 
@@ -131,6 +220,7 @@ Http2Client::response Http2Client::send(
         // headers.emplace("content-length", clValue);
 
         //perform submit
+        task->sendingUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
         auto req = submit(session, headers, ec);
         if (!req) {
             ert::tracing::Logger::error("Request submit error, closing connection ...", ERT_FILE_LOCATION);
@@ -140,7 +230,7 @@ Http2Client::response Http2Client::send(
         }
 
         req->on_response(
-            [task](const nghttp2::asio_http2::client::response & res)
+            [task, this](const nghttp2::asio_http2::client::response & res)
         {
             if (task->timed_out) {
                 LOGINFORMATIONAL(
@@ -148,9 +238,22 @@ Http2Client::response Http2Client::send(
                 );
                 return;
             }
+            // metrics
+            if (metrics_) {
+                // histograms
+                task->receptionUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+                double durationUs = (task->receptionUs - task->sendingUs).count();
+                double durationSeconds = durationUs/1000000.0;
+                LOGDEBUG(
+                    std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
+                    ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+                );
+                responses_delay_seconds_gauge_->Set(durationSeconds);
+                responses_delay_seconds_histogram_->Observe(durationSeconds);
+            }
 
             res.on_data(
-                [task, &res](const uint8_t* data, std::size_t len)
+                [task, &res, this](const uint8_t* data, std::size_t len)
             {
                 if (len > 0)
                 {
@@ -160,9 +263,15 @@ Http2Client::response Http2Client::send(
                 else
                 {
                     //setting the value on 'response' (promise) will unlock 'done' (future)
-                    task->response.set_value(Http2Client::response {task->data, res.status_code(), res.header()});
+                    task->response.set_value(Http2Client::response {task->data, res.status_code(), res.header(), task->sendingUs, task->receptionUs});
                     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString(
                             "Request has been answered with status code: %d; data: %s; headers: %s", res.status_code(), task->data.c_str(), headersAsString(res.header()).c_str()), ERT_FILE_LOCATION));
+                    // metrics
+                    if (metrics_) {
+                        std::size_t responseBodySize = task->data.size();
+                        messages_size_bytes_tx_gauge_->Set(responseBodySize);
+                        messages_size_bytes_tx_histogram_->Observe(responseBodySize);
+                    }
                 }
             });
         });
