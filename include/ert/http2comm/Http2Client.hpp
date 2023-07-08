@@ -192,6 +192,13 @@ public:
     virtual void responseTimeout() {;}
 
     /*
+     * Check if connection is open
+     *
+     * @return Boolean with connection open status
+     */
+    bool isConnected() const;
+
+    /*
      * Gets connection status string
      *
      * @return string with connection status (NotOpen, Open, Closed)
