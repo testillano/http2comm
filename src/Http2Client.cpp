@@ -340,6 +340,11 @@ std::string Http2Client::getConnectionStatus() const {
     return result;
 }
 
+bool Http2Client::isConnected() const {
+    if (!connection_) return false;
+    return (connection_->getStatus() == ert::http2comm::Http2Connection::Status::OPEN);
+}
+
 }
 }
 
