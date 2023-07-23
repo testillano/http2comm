@@ -98,6 +98,9 @@ const std::pair<int, std::string> METHOD_NOT_IMPLEMENTED (
     ResponseCode::NOT_IMPLEMENTED,
     "METHOD_NOT_IMPLEMENTED");
 
+const std::pair<int, std::string> SERVICE_UNAVAILABLE (
+    ResponseCode::SERVICE_UNAVAILABLE,
+    "SERVICE_UNAVAILABLE");
 }
 }
 

@@ -9,6 +9,7 @@ WORKDIR /code/build
 ARG make_procs=4
 ARG build_type=Release
 ARG ert_logger_ver=v1.0.10
+ARG ert_queuedispatcher_ver=v1.0.2
 ARG jupp0r_prometheuscpp_ver=v0.13.0
 ARG civetweb_civetweb_ver=v1.14
 ARG ert_metrics_ver=v1.0.2
@@ -20,6 +21,13 @@ RUN if [ "${base_os}" = "alpine" ] ; then apk update && apk add doxygen graphviz
 RUN set -x && \
     wget https://github.com/testillano/logger/archive/${ert_logger_ver}.tar.gz && tar xvf ${ert_logger_ver}.tar.gz && cd logger-*/ && \
     cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
+    cd .. && rm -rf * && \
+    set +x
+
+# ert_queuedispatcher
+RUN set -x && \
+    wget https://github.com/testillano/queuedispatcher/archive/${ert_queuedispatcher_ver}.tar.gz && tar xvf ${ert_queuedispatcher_ver}.tar.gz && cd queuedispatcher-*/ && \
+    cmake -DERT_QUEUEDISPATCHER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
 
