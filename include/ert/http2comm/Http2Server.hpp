@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -50,8 +50,8 @@ SOFTWARE.
 
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/Http2Headers.hpp>
-#include <ert/http2comm/QueueDispatcher.hpp>
 
+#include <ert/queuedispatcher/QueueDispatcher.hpp>
 #include <ert/metrics/Metrics.hpp>
 
 namespace ert
@@ -70,7 +70,8 @@ class Http2Server
     std::string api_name_{};
     std::string api_version_{};
     boost::asio::io_service *timers_io_service_;
-    QueueDispatcher *queue_dispatcher_;
+    ert::queuedispatcher::QueueDispatcher *queue_dispatcher_;
+    int max_queue_dispatcher_size_{};
 
     nghttp2::asio_http2::server::request_cb handler();
 
@@ -114,8 +115,11 @@ public:
     *  @param workerThreads number of worker threads.
     *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
     *  @param timerIoService Optional io service to manage response delays
+    *  @param maxQueueDispatcherSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
+    *  idle consumer threads, and queue dispatcher size is over this value. Defaults to -1 which means 'no limit' to grow the queue (this probably implies response time degradation).
+    *  So, to enable the described congestion control algorithm, provide a non-negative value.
     */
-    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr);
+    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr, int maxQueueDispatcherSize = -1 /* no limit */);
     virtual ~Http2Server();
 
     // setters
@@ -125,6 +129,21 @@ public:
     * Gets the queue dispatcher busy threads
     */
     int busyThreads() const;
+
+    /**
+    * Gets the queue dispatcher size
+    */
+    int getQueueDispacherSize() const;
+
+    /**
+    * Gets the queue dispatcher maximum size allowed on congestion control
+    * Defaults to -1 (no limit to grow the queue).
+    *
+    * This enables a simple congestion control algorithm which consist in indicate congestion when
+    * queue dispatcher has no idle consumer threads and also, queue size is over this specific
+    * value.
+    */
+    int getMaxQueueDispacherSize() const;
 
     /**
     * Enable metrics

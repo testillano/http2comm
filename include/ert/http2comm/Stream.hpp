@@ -1,5 +1,5 @@
 /*
- __________________________________________________________________________________
+ _________________________________________________________________________________
 |             _          _     _   _        ___                                   |
 |            | |        | |   | | | |      |__ \                                  |
 |    ___ _ __| |_   __  | |__ | |_| |_ _ __   ) |   __ ___  _ __ ___  _ __ ___    |
@@ -44,6 +44,8 @@ SOFTWARE.
 #include <memory>
 #include <chrono>
 
+#include <ert/queuedispatcher/StreamIf.hpp>
+
 #include <boost/asio.hpp>
 
 #include <nghttp2/asio_http2_server.h>
@@ -73,7 +75,7 @@ class Http2Server;
  *
  * @see https://gist.github.com/tatsuhiro-t/ba3f7d72d037027ae47b
  */
-class Stream
+class Stream : public ert::queuedispatcher::StreamIf
 //class Stream : public std::enable_shared_from_this<Stream>
 {
     std::mutex mutex_;
@@ -101,9 +103,9 @@ public:
            const nghttp2::asio_http2::server::response& res,
            Http2Server *server);
 
-    Stream(const Stream&) = delete;
-    ~Stream() = default;
-    Stream& operator=(const Stream&) = delete;
+    //Stream(const Stream&) = delete;
+    //~Stream() = default;
+    //Stream& operator=(const Stream&) = delete;
 
     // nghttp2-asio request structure
     const nghttp2::asio_http2::server::request& getReq() const {
@@ -117,8 +119,11 @@ public:
     // append received data chunk
     void appendData(const uint8_t* data, std::size_t len);
 
+    // Used by queue dispatcher:
+    void process(bool busyConsumers, int queueSize);
+
     // Process reception
-    void process();
+    void reception(bool congestion = false);
 
     // Completes the nghttp2 transaction (res.end()) with the values calculated at process()
     void commit();

@@ -66,14 +66,23 @@ void Stream::appendData(const uint8_t* data, std::size_t len) {
     request_body_.append((const char *)data, len);
 }
 
-void Stream::process()
+void Stream::process(bool busyConsumers, int queueSize) {
+    reception(server_->getMaxQueueDispacherSize() >= 0 /* congestion control enabled */ && busyConsumers && queueSize > server_->getMaxQueueDispacherSize());
+    commit();
+}
+
+void Stream::reception(bool congestion)
 {
     reception_timestamp_us_ = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
 
     std::vector<std::string> allowedMethods;
     unsigned int responseDelayMs{};
 
-    if (!server_->checkMethodIsAllowed(req_, allowedMethods))
+    if (congestion)
+    {
+        server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::SERVICE_UNAVAILABLE);
+    }
+    else if (!server_->checkMethodIsAllowed(req_, allowedMethods))
     {
         server_->receiveError(req_, request_body_, status_code_, response_headers_, response_body_, ert::http2comm::METHOD_NOT_ALLOWED, "", allowedMethods);
     }
