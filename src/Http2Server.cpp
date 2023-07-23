@@ -69,7 +69,7 @@ int Http2Server::getQueueDispatcherBusyThreads() const {
 }
 
 int Http2Server::getQueueDispatcherThreads() const {
-    return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
+    return (queue_dispatcher_ ? queue_dispatcher_->getThreads():0);
 }
 
 int Http2Server::getQueueDispatcherSize() const {
