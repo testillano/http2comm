@@ -71,7 +71,7 @@ class Http2Server
     std::string api_version_{};
     boost::asio::io_service *timers_io_service_;
     ert::queuedispatcher::QueueDispatcher *queue_dispatcher_;
-    int max_queue_dispatcher_size_{};
+    int queue_dispatcher_max_size_{};
 
     nghttp2::asio_http2::server::request_cb handler();
 
@@ -115,11 +115,11 @@ public:
     *  @param workerThreads number of worker threads.
     *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
     *  @param timerIoService Optional io service to manage response delays
-    *  @param maxQueueDispatcherSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
+    *  @param queueDispatcherMaxSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
     *  idle consumer threads, and queue dispatcher size is over this value. Defaults to -1 which means 'no limit' to grow the queue (this probably implies response time degradation).
     *  So, to enable the described congestion control algorithm, provide a non-negative value.
     */
-    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr, int maxQueueDispatcherSize = -1 /* no limit */);
+    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr, int queueDispatcherMaxSize = -1 /* no limit */);
     virtual ~Http2Server();
 
     // setters
@@ -128,7 +128,12 @@ public:
     /**
     * Gets the queue dispatcher busy threads
     */
-    int busyThreads() const;
+    int getQueueDispatcherBusyThreads() const;
+
+    /**
+    * Gets the queue dispatcher number of scheduled threads
+    */
+    int getQueueDispacherThreads() const;
 
     /**
     * Gets the queue dispatcher size
@@ -143,7 +148,7 @@ public:
     * queue dispatcher has no idle consumer threads and also, queue size is over this specific
     * value.
     */
-    int getMaxQueueDispacherSize() const;
+    int getQueueDispacherMaxSize() const;
 
     /**
     * Enable metrics

@@ -67,7 +67,7 @@ void Stream::appendData(const uint8_t* data, std::size_t len) {
 }
 
 void Stream::process(bool busyConsumers, int queueSize) {
-    reception(server_->getMaxQueueDispacherSize() >= 0 /* congestion control enabled */ && busyConsumers && queueSize > server_->getMaxQueueDispacherSize());
+    reception(server_->getQueueDispacherMaxSize() >= 0 /* congestion control enabled */ && busyConsumers && queueSize > server_->getQueueDispacherMaxSize());
     commit();
 }
 

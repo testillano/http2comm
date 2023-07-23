@@ -58,22 +58,26 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_service *timersIoService, int maxQueueDispatcherSize):
-    name_(name), timers_io_service_(timersIoService), reception_id_(0), maximum_request_body_size_(0), max_queue_dispatcher_size_(maxQueueDispatcherSize) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_service *timersIoService, int queueDispatcherMaxSize):
+    name_(name), timers_io_service_(timersIoService), reception_id_(0), maximum_request_body_size_(0), queue_dispatcher_max_size_(queueDispatcherMaxSize) {
 
     queue_dispatcher_ = (workerThreads > 1) ? new ert::queuedispatcher::QueueDispatcher(name + "_queueDispatcher", workerThreads, maxWorkerThreads) : nullptr;
 }
 
-int Http2Server::busyThreads() const {
+int Http2Server::getQueueDispatcherBusyThreads() const {
     return (queue_dispatcher_ ? queue_dispatcher_->getBusyThreads():0);
+}
+
+int Http2Server::getQueueDispacherThreads() const {
+    return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
 }
 
 int Http2Server::getQueueDispacherSize() const {
     return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
 }
 
-int Http2Server::getMaxQueueDispacherSize() const {
-    return max_queue_dispatcher_size_;
+int Http2Server::getQueueDispacherMaxSize() const {
+    return queue_dispatcher_max_size_;
 }
 
 void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
