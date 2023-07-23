@@ -133,12 +133,12 @@ public:
     /**
     * Gets the queue dispatcher number of scheduled threads
     */
-    int getQueueDispacherThreads() const;
+    int getQueueDispatcherThreads() const;
 
     /**
     * Gets the queue dispatcher size
     */
-    int getQueueDispacherSize() const;
+    int getQueueDispatcherSize() const;
 
     /**
     * Gets the queue dispatcher maximum size allowed on congestion control
@@ -148,7 +148,7 @@ public:
     * queue dispatcher has no idle consumer threads and also, queue size is over this specific
     * value.
     */
-    int getQueueDispacherMaxSize() const;
+    int getQueueDispatcherMaxSize() const;
 
     /**
     * Enable metrics

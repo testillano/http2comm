@@ -68,15 +68,15 @@ int Http2Server::getQueueDispatcherBusyThreads() const {
     return (queue_dispatcher_ ? queue_dispatcher_->getBusyThreads():0);
 }
 
-int Http2Server::getQueueDispacherThreads() const {
+int Http2Server::getQueueDispatcherThreads() const {
     return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
 }
 
-int Http2Server::getQueueDispacherSize() const {
+int Http2Server::getQueueDispatcherSize() const {
     return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
 }
 
-int Http2Server::getQueueDispacherMaxSize() const {
+int Http2Server::getQueueDispatcherMaxSize() const {
     return queue_dispatcher_max_size_;
 }
 
