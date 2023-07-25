@@ -69,7 +69,7 @@ class Http2Server
     // Metric names should not be too long or too short.
     std::string api_name_{};
     std::string api_version_{};
-    boost::asio::io_service *timers_io_service_;
+    boost::asio::io_context *timers_io_context_;
     ert::queuedispatcher::QueueDispatcher *queue_dispatcher_;
     int queue_dispatcher_max_size_{};
 
@@ -114,12 +114,12 @@ public:
     *  @param name Server name (lower case, as it is used to name prometheus metrics).
     *  @param workerThreads number of worker threads.
     *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
-    *  @param timerIoService Optional io service to manage response delays
+    *  @param timerIoContext Optional io context to manage response delays
     *  @param queueDispatcherMaxSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
     *  idle consumer threads, and queue dispatcher size is over this value. Defaults to -1 which means 'no limit' to grow the queue (this probably implies response time degradation).
     *  So, to enable the described congestion control algorithm, provide a non-negative value.
     */
-    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_service *timerIoService = nullptr, int queueDispatcherMaxSize = -1 /* no limit */);
+    Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_context *timerIoContext = nullptr, int queueDispatcherMaxSize = -1 /* no limit */);
     virtual ~Http2Server();
 
     // setters
@@ -320,9 +320,9 @@ public:
     * @param key secure key for HTTP/2 communication.
     * @param cert secure cert for HTTP/2 communication.
     * @param numberThreads nghttp2 server threads (multi client).
-    * @param read activity keep alive period. If server does not receive data in this
-    * period, then it will close the connection. Default value is 1 minute.
     * @param asynchronous boolean for non-blocking server start.
+    * @param readKeepAlive read activity keep alive period. If server does not receive data in this
+    * period, then it will close the connection. Default value is 1 minute.
     *
     * @return exit code (EXIT_SUCCESS|EXIT_FAILURE)
     */
@@ -335,10 +335,10 @@ public:
               const boost::posix_time::time_duration &readKeepAlive = boost::posix_time::seconds(60));
 
     /**
-    * Gets the timers io service used to manage response delays
+    * Gets the timers io context used to manage response delays
     */
-    boost::asio::io_service *getTimersIoService() const {
-        return timers_io_service_;
+    boost::asio::io_context *getTimersIoContext() const {
+        return timers_io_context_;
     }
 
     /**

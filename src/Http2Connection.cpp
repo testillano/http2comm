@@ -56,17 +56,17 @@ namespace ert
 {
 namespace http2comm
 {
-nghttp2::asio_http2::client::session Http2Connection::createSession(boost::asio::io_service &ioService, const std::string &host, const std::string &port, bool secure) {
+nghttp2::asio_http2::client::session Http2Connection::createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure) {
     if (secure)
     {
         boost::system::error_code ec;
         boost::asio::ssl::context tls_ctx(boost::asio::ssl::context::sslv23);
         tls_ctx.set_default_verify_paths();
         nghttp2::asio_http2::client::configure_tls_context(ec, tls_ctx);
-        return nghttp2::asio_http2::client::session(ioService, tls_ctx, host, port);
+        return nghttp2::asio_http2::client::session(ioContext, tls_ctx, host, port);
     }
 
-    return nghttp2::asio_http2::client::session(ioService, host, port);
+    return nghttp2::asio_http2::client::session(ioContext, host, port);
 }
 
 void Http2Connection::configureSession() {
@@ -87,15 +87,15 @@ void Http2Connection::configureSession() {
 Http2Connection::Http2Connection(const std::string& host,
                                  const std::string& port,
                                  bool secure) :
-    work_(boost::asio::io_service::work(io_service_)),
+    work_(boost::asio::io_context::work(io_context_)),
     status_(Status::NOT_OPEN),
     host_(host),
     port_(port),
     secure_(secure),
-    session_(nghttp2::asio_http2::client::session(createSession(io_service_, host, port, secure)))
+    session_(nghttp2::asio_http2::client::session(createSession(io_context_, host, port, secure)))
 {
     configureSession();
-    thread_ = std::thread([&] { io_service_.run(); });
+    thread_ = std::thread([&] { io_context_.run(); });
 }
 
 Http2Connection::~Http2Connection()
@@ -117,7 +117,7 @@ void Http2Connection::notifyClose()
 
 void Http2Connection::closeImpl()
 {
-    io_service_.stop();
+    io_context_.stop();
 
     if (thread_.joinable())
     {

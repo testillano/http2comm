@@ -38,8 +38,6 @@ SOFTWARE.
 */
 #include <nghttp2/asio_http2_server.h>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-
 #include <ert/tracing/Logger.hpp>
 
 #include <ert/http2comm/Stream.hpp>
@@ -113,7 +111,7 @@ void Stream::reception(bool congestion)
 
     // Optional reponse delay
     if (responseDelayMs != 0) { // optional delay:
-        if (server_->getTimersIoService()) {
+        if (server_->getTimersIoContext()) {
             auto responseDelayUs = 1000*responseDelayMs;
             LOGDEBUG(
                 std::string msg = ert::tracing::Logger::asString("Planned delay before response: %d us", responseDelayUs);
@@ -131,10 +129,10 @@ void Stream::reception(bool congestion)
             }
             );
 
-            timer_ = new boost::asio::deadline_timer(*(server_->getTimersIoService()), boost::posix_time::microseconds(responseDelayUs));
+            timer_ = new boost::asio::steady_timer(*(server_->getTimersIoContext()), std::chrono::microseconds(responseDelayUs));
         }
         else {
-            LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io service for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
+            LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io context for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
         }
     }
 }

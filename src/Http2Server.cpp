@@ -58,8 +58,8 @@ namespace ert
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_service *timersIoService, int queueDispatcherMaxSize):
-    name_(name), timers_io_service_(timersIoService), reception_id_(0), maximum_request_body_size_(0), queue_dispatcher_max_size_(queueDispatcherMaxSize) {
+Http2Server::Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_context *timersIoContext, int queueDispatcherMaxSize):
+    name_(name), timers_io_context_(timersIoContext), reception_id_(0), maximum_request_body_size_(0), queue_dispatcher_max_size_(queueDispatcherMaxSize) {
 
     queue_dispatcher_ = (workerThreads > 1) ? new ert::queuedispatcher::QueueDispatcher(name + "_queueDispatcher", workerThreads, maxWorkerThreads) : nullptr;
 }
@@ -326,7 +326,7 @@ int Http2Server::stop()
 {
     try
     {
-        // stop internal io services
+        // stop internal io contexts
         for (auto &ii: server_.io_services()) if (!ii->stopped()) ii->stop();
         server_.stop();
     }

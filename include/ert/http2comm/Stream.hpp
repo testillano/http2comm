@@ -65,7 +65,7 @@ class Http2Server;
  * and launch the working thread with the stream (or insert in a concurrent queue):
  *
  * <pre>
- *    auto stream = std::make_shared<Stream>(req, res, res.io_service, requestStream, server);
+ *    auto stream = std::make_shared<Stream>(req, res, res.io_context, requestStream, server);
  *    res.on_close([stream](uint32_t error_code) { stream->close(true); });
  *    auto thread = std::thread([stream]()
  *    {
@@ -90,7 +90,7 @@ class Stream : public ert::queuedispatcher::StreamIf
     unsigned int status_code_{};
     nghttp2::asio_http2::header_map response_headers_{};
     std::string response_body_{};
-    boost::asio::deadline_timer *timer_{};
+    boost::asio::steady_timer *timer_{};
 
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods

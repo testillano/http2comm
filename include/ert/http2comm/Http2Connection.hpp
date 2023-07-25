@@ -79,8 +79,8 @@ public:
         CLOSED
     };
 
-    // Seccion factory with io_service, host, port and secure inputs:
-    nghttp2::asio_http2::client::session createSession(boost::asio::io_service &ioService, const std::string &host, const std::string &port, bool secure);
+    // Seccion factory with io_context, host, port and secure inputs:
+    nghttp2::asio_http2::client::session createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure);
 
 public:
     /// Class constructors
@@ -226,8 +226,8 @@ private:
 private:
 
     /// ASIO attributes
-    boost::asio::io_service io_service_;
-    boost::asio::io_service::work work_;
+    boost::asio::io_context io_context_;
+    boost::asio::io_context::work work_;
     nghttp2::asio_http2::client::session session_;
 
     /// Class attributes
