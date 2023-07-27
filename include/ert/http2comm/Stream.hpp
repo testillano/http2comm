@@ -90,7 +90,8 @@ class Stream : public ert::queuedispatcher::StreamIf
     unsigned int status_code_{};
     nghttp2::asio_http2::header_map response_headers_{};
     std::string response_body_{};
-    boost::asio::steady_timer *timer_{};
+    std::shared_ptr<boost::asio::steady_timer> timer_{};
+    bool need_timer_{};
 
     // For metrics:
     std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods

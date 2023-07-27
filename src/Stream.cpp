@@ -51,7 +51,7 @@ namespace http2comm
 {
 Stream::Stream(const nghttp2::asio_http2::server::request& req,
                const nghttp2::asio_http2::server::response& res,
-               Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), error_(false), timer_(nullptr) {
+               Http2Server *server) : req_(req), res_(res), server_(server), closed_(false), error_(false), timer_(nullptr), need_timer_(false) {
 
     if (server_->preReserveRequestBody()) request_body_.reserve(server_->maximum_request_body_size_.load());
 }
@@ -129,7 +129,8 @@ void Stream::reception(bool congestion)
             }
             );
 
-            timer_ = new boost::asio::steady_timer(*(server_->getTimersIoContext()), std::chrono::microseconds(responseDelayUs));
+            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), std::chrono::microseconds(responseDelayUs));
+            need_timer_ = true;
         }
         else {
             LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io context for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
@@ -139,11 +140,17 @@ void Stream::reception(bool congestion)
 
 void Stream::commit()
 {
-    if (timer_)
+    if (need_timer_)
     {
-        timer_->async_wait([&] (const boost::system::error_code&) {
-            delete timer_;
-            timer_ = nullptr;
+        /*
+                timer_->async_wait([&] (const boost::system::error_code&) {
+                    delete timer_;
+                    timer_ = nullptr;
+                    commit();
+                });
+        */
+        timer_->async_wait([this] (const boost::system::error_code&) {
+            need_timer_ = false;
             commit();
         });
         return;
