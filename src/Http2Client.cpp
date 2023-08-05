@@ -72,6 +72,8 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
     metrics_ = metrics;
 
     if (metrics_) {
+        observed_responses_counter_family_name_ = name_ + std::string("_observed_responses_total");
+
         ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
         observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
         observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));
@@ -188,8 +190,8 @@ Http2Client::response Http2Client::send(
         }
 
         std::size_t requestBodySize = body.size();
-        messages_size_bytes_rx_gauge_->Set(requestBodySize);
-        messages_size_bytes_rx_histogram_->Observe(requestBodySize);
+        messages_size_bytes_tx_gauge_->Set(requestBodySize);
+        messages_size_bytes_tx_histogram_->Observe(requestBodySize);
     }
 
     auto url = getUri(path);
@@ -240,6 +242,9 @@ Http2Client::response Http2Client::send(
             }
             // metrics
             if (metrics_) {
+                // Dynamic counters (status code):
+                metrics_->increaseCounter(observed_responses_counter_family_name_, {{"statuscode", std::to_string(res.status_code())}});
+
                 // histograms
                 task->receptionUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
                 double durationUs = (task->receptionUs - task->sendingUs).count();
@@ -269,8 +274,8 @@ Http2Client::response Http2Client::send(
                     // metrics
                     if (metrics_) {
                         std::size_t responseBodySize = task->data.size();
-                        messages_size_bytes_tx_gauge_->Set(responseBodySize);
-                        messages_size_bytes_tx_histogram_->Observe(responseBodySize);
+                        messages_size_bytes_rx_gauge_->Set(responseBodySize);
+                        messages_size_bytes_rx_histogram_->Observe(responseBodySize);
                     }
                 }
             });

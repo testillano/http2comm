@@ -87,6 +87,8 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
     metrics_ = metrics;
 
     if (metrics_) {
+        observed_responses_counter_family_name_ = name_ + std::string("_observed_responses_total");
+
         ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
         observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
         observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));

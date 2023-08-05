@@ -209,6 +209,10 @@ void Stream::close() {
     server_->messages_size_bytes_tx_histogram_->Observe(responseBodySize);
 
     // counters
+
+    // Dynamic counters (status code):
+    server_->metrics_->increaseCounter(server_->observed_responses_counter_family_name_, {{"statuscode", std::to_string(status_code_)}});
+
     std::string method = req_.method();
     if (method == "POST") {
         server_->observed_requests_post_counter_->Increment();

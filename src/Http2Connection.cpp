@@ -95,7 +95,8 @@ Http2Connection::Http2Connection(const std::string& host,
     session_(nghttp2::asio_http2::client::session(createSession(io_context_, host, port, secure)))
 {
     configureSession();
-    thread_ = std::thread([&] { io_context_.run(); });
+    thread_ = std::thread([&] { io_context_.run(); }); // only 1 thread !!! That's why Http2Client post is "blocking" and we must
+    // build an external IO CONTEXT with more workers than 1, to post sends there.
 }
 
 Http2Connection::~Http2Connection()

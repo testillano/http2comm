@@ -121,6 +121,8 @@ private:
     // metrics:
     ert::metrics::Metrics *metrics_{};
 
+    std::string observed_responses_counter_family_name_{}; // dynamic
+
     ert::metrics::counter_t *observed_requests_post_counter_{};
     ert::metrics::counter_t *observed_requests_get_counter_{};
     ert::metrics::counter_t *observed_requests_put_counter_{};
