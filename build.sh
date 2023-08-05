@@ -13,7 +13,7 @@ ert_queuedispatcher_ver__dflt=v1.0.3
 jupp0r_prometheuscpp_ver__dflt=v0.13.0
 # 3rd party used by prometheus:
 civetweb_civetweb_ver__dflt=v1.14
-ert_metrics_ver__dflt=v1.0.3
+ert_metrics_ver__dflt=v1.0.4
 registry=ghcr.io/testillano
 
 #############
