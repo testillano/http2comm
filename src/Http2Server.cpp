@@ -87,35 +87,23 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
     metrics_ = metrics;
 
     if (metrics_) {
-        observed_responses_counter_family_name_ = name_ + std::string("_observed_responses_total");
+        observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_accepted_total"), std::string("Http2 total requests accepted observed in ") + name_));
+        observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_errored_total"), std::string("Http2 total requests errored observed in ") + name_));
+        observed_responses_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_total"), std::string("Http2 total responses observed in ") + name_));
 
-        ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
-        observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
-        observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));
-        observed_requests_put_counter_ = &(cf.Add({{"method", "PUT"}}));
-        observed_requests_delete_counter_ = &(cf.Add({{"method", "DELETE"}}));
-        observed_requests_head_counter_ = &(cf.Add({{"method", "HEAD"}}));
-        observed_requests_other_counter_ = &(cf.Add({{"method", "other"}}));
-        observed_requests_error_post_counter_ = &(cf.Add({{"success", "false"}, {"method", "POST"}}));
-        observed_requests_error_get_counter_ = &(cf.Add({{"success", "false"}, {"method", "GET"}}));
-        observed_requests_error_put_counter_ = &(cf.Add({{"success", "false"}, {"method", "PUT"}}));
-        observed_requests_error_delete_counter_ = &(cf.Add({{"success", "false"}, {"method", "DELETE"}}));
-        observed_requests_error_head_counter_ = &(cf.Add({{"success", "false"}, {"method", "HEAD"}}));
-        observed_requests_error_other_counter_ = &(cf.Add({{"success", "false"}, {"method", "other"}}));
+        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_));
+        responses_delay_seconds_gauge_ = &(responses_delay_seconds_gauge_family_ptr_->Add({}));
+        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Http2 received messages sizes gauge (bytes) in ") + name_));
+        received_messages_size_bytes_gauge_ = &(received_messages_size_bytes_gauge_family_ptr_->Add({}));
+        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Http2 sent messages sizes gauge (bytes) in ") + name_));
+        sent_messages_size_bytes_gauge_ = &(sent_messages_size_bytes_gauge_family_ptr_->Add({}));
 
-        ert::metrics::gauge_family_ref_t gf1 = metrics->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_);
-        responses_delay_seconds_gauge_ = &(gf1.Add({}));
-
-        ert::metrics::gauge_family_ref_t gf2 = metrics->addGaugeFamily(name_ + std::string("_messages_size_bytes_gauge"), std::string("Http2 message sizes gauge (bytes) in ") + name_);
-        messages_size_bytes_rx_gauge_ = &(gf2.Add({{"direction", "rx"}}));
-        messages_size_bytes_tx_gauge_ = &(gf2.Add({{"direction", "tx"}}));
-
-        ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay (seconds) in ") + name_);
-        responses_delay_seconds_histogram_ = &(hf1.Add({}, responseDelaySecondsHistogramBucketBoundaries));
-
-        ert::metrics::histogram_family_ref_t hf2 = metrics->addHistogramFamily(name_ + std::string("_messages_size_bytes_histogram"), std::string("Http2 message sizes (bytes) in ") + name_);
-        messages_size_bytes_rx_histogram_ = &(hf2.Add({{"direction", "rx"}}, messageSizeBytesHistogramBucketBoundaries));
-        messages_size_bytes_tx_histogram_ = &(hf2.Add({{"direction", "tx"}}, messageSizeBytesHistogramBucketBoundaries));
+        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay histogram (seconds) in ") + name_));
+        responses_delay_seconds_histogram_ = &(responses_delay_seconds_histogram_family_ptr_->Add({}, responseDelaySecondsHistogramBucketBoundaries));
+        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes_histogram"), std::string("Http2 received messages sizes histogram (bytes) in ") + name_));
+        received_messages_size_bytes_histogram_ = &(received_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
+        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes_histogram"), std::string("Http2 sent messages sizes histogram (bytes) in ") + name_));
+        sent_messages_size_bytes_histogram_ = &(sent_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
     }
 }
 
@@ -150,25 +138,8 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
 {
     // metrics
     if (metrics_) {
-        // counters
-        if (req.method() == "POST") {
-            observed_requests_error_post_counter_->Increment();
-        }
-        else if (req.method() == "GET") {
-            observed_requests_error_get_counter_->Increment();
-        }
-        else if (req.method() == "PUT") {
-            observed_requests_error_put_counter_->Increment();
-        }
-        else if (req.method() == "DELETE") {
-            observed_requests_error_delete_counter_->Increment();
-        }
-        else if (req.method() == "HEAD") {
-            observed_requests_error_head_counter_->Increment();
-        }
-        else {
-            observed_requests_error_other_counter_->Increment();
-        }
+        auto& counter = observed_requests_errored_counter_family_ptr_->Add({{"method", req.method()}});
+        counter.Increment();
     }
 
     statusCode = error.first;

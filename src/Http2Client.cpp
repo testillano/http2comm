@@ -72,35 +72,25 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
     metrics_ = metrics;
 
     if (metrics_) {
-        observed_responses_counter_family_name_ = name_ + std::string("_observed_responses_total");
 
-        ert::metrics::counter_family_ref_t cf = metrics->addCounterFamily(name_ + std::string("_observed_requests_total"), std::string("Http2 total requests observed in ") + name_);
-        observed_requests_post_counter_ = &(cf.Add({{"method", "POST"}}));
-        observed_requests_get_counter_ = &(cf.Add({{"method", "GET"}}));
-        observed_requests_put_counter_ = &(cf.Add({{"method", "PUT"}}));
-        observed_requests_delete_counter_ = &(cf.Add({{"method", "DELETE"}}));
-        observed_requests_head_counter_ = &(cf.Add({{"method", "HEAD"}}));
-        observed_requests_other_counter_ = &(cf.Add({{"method", "other"}}));
-        observed_requests_error_post_counter_ = &(cf.Add({{"success", "false"}, {"method", "POST"}}));
-        observed_requests_error_get_counter_ = &(cf.Add({{"success", "false"}, {"method", "GET"}}));
-        observed_requests_error_put_counter_ = &(cf.Add({{"success", "false"}, {"method", "PUT"}}));
-        observed_requests_error_delete_counter_ = &(cf.Add({{"success", "false"}, {"method", "DELETE"}}));
-        observed_requests_error_head_counter_ = &(cf.Add({{"success", "false"}, {"method", "HEAD"}}));
-        observed_requests_error_other_counter_ = &(cf.Add({{"success", "false"}, {"method", "other"}}));
+        observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_sents_total"), std::string("Http2 total requests sents observed in ") + name_));
+        observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_unsent_total"), std::string("Http2 total requests unsents observed in ") + name_));
+        observed_responses_received_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_received_total"), std::string("Http2 total responses received observed in ") + name_));
+        observed_responses_timedout_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_timedout_total"), std::string("Http2 total responses timed-out observed in ") + name_));
 
-        ert::metrics::gauge_family_ref_t gf1 = metrics->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_);
-        responses_delay_seconds_gauge_ = &(gf1.Add({}));
+        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_));
+        responses_delay_seconds_gauge_ = &(responses_delay_seconds_gauge_family_ptr_->Add({}));
+        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Http2 sent messages sizes gauge (bytes) in ") + name_));
+        sent_messages_size_bytes_gauge_ = &(sent_messages_size_bytes_gauge_family_ptr_->Add({}));
+        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Http2 received messages sizes gauge (bytes) in ") + name_));
+        received_messages_size_bytes_gauge_ = &(received_messages_size_bytes_gauge_family_ptr_->Add({}));
 
-        ert::metrics::gauge_family_ref_t gf2 = metrics->addGaugeFamily(name_ + std::string("_messages_size_bytes_gauge"), std::string("Http2 message sizes gauge (bytes) in ") + name_);
-        messages_size_bytes_rx_gauge_ = &(gf2.Add({{"direction", "rx"}}));
-        messages_size_bytes_tx_gauge_ = &(gf2.Add({{"direction", "tx"}}));
-
-        ert::metrics::histogram_family_ref_t hf1 = metrics->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay (seconds) in ") + name_);
-        responses_delay_seconds_histogram_ = &(hf1.Add({}, responseDelaySecondsHistogramBucketBoundaries));
-
-        ert::metrics::histogram_family_ref_t hf2 = metrics->addHistogramFamily(name_ + std::string("_messages_size_bytes_histogram"), std::string("Http2 message sizes (bytes) in ") + name_);
-        messages_size_bytes_rx_histogram_ = &(hf2.Add({{"direction", "rx"}}, messageSizeBytesHistogramBucketBoundaries));
-        messages_size_bytes_tx_histogram_ = &(hf2.Add({{"direction", "tx"}}, messageSizeBytesHistogramBucketBoundaries));
+        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay histogram (seconds) in ") + name_));
+        responses_delay_seconds_histogram_ = &(responses_delay_seconds_histogram_family_ptr_->Add({}, responseDelaySecondsHistogramBucketBoundaries));
+        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes_histogram"), std::string("Http2 sent messages sizes histogram (bytes) in ") + name_));
+        sent_messages_size_bytes_histogram_ = &(sent_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
+        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes_histogram"), std::string("Http2 received messages sizes histogram (bytes) in ") + name_));
+        received_messages_size_bytes_histogram_ = &(received_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
     }
 }
 
@@ -143,55 +133,21 @@ Http2Client::response Http2Client::send(
 
         // metrics
         if (metrics_) {
-            // counters
-            if (method == "POST") {
-                observed_requests_error_post_counter_->Increment();
-            }
-            else if (method == "GET") {
-                observed_requests_error_get_counter_->Increment();
-            }
-            else if (method == "PUT") {
-                observed_requests_error_put_counter_->Increment();
-            }
-            else if (method == "DELETE") {
-                observed_requests_error_delete_counter_->Increment();
-            }
-            else if (method == "HEAD") {
-                observed_requests_error_head_counter_->Increment();
-            }
-            else {
-                observed_requests_error_other_counter_->Increment();
-            }
+            auto& counter = observed_requests_unsents_counter_family_ptr_->Add({{"method", method}});
+            counter.Increment();
         }
 
         return Http2Client::response{"", -1};
     }
 
-    // metrics
+// metrics
     if (metrics_) {
-        // counters
-        if (method == "POST") {
-            observed_requests_post_counter_->Increment();
-        }
-        else if (method == "GET") {
-            observed_requests_get_counter_->Increment();
-        }
-        else if (method == "PUT") {
-            observed_requests_put_counter_->Increment();
-        }
-        else if (method == "DELETE") {
-            observed_requests_delete_counter_->Increment();
-        }
-        else if (method == "HEAD") {
-            observed_requests_head_counter_->Increment();
-        }
-        else {
-            observed_requests_other_counter_->Increment();
-        }
+        auto& counter = observed_requests_sents_counter_family_ptr_->Add({{"method", method}});
+        counter.Increment();
 
         std::size_t requestBodySize = body.size();
-        messages_size_bytes_tx_gauge_->Set(requestBodySize);
-        messages_size_bytes_tx_histogram_->Observe(requestBodySize);
+        sent_messages_size_bytes_gauge_->Set(requestBodySize);
+        sent_messages_size_bytes_histogram_->Observe(requestBodySize);
     }
 
     auto url = getUri(path);
@@ -211,7 +167,7 @@ Http2Client::response Http2Client::send(
     const auto& session = connection_->getSession();
     auto task = std::make_shared<Http2Client::task>();
 
-    session.io_service().post([&, task, headers, this]
+    session.io_service().post([&, task, method, headers, this]
     {
         boost::system::error_code ec;
 
@@ -232,7 +188,7 @@ Http2Client::response Http2Client::send(
         }
 
         req->on_response(
-            [task, this](const nghttp2::asio_http2::client::response & res)
+            [task, method, this](const nghttp2::asio_http2::client::response & res)
         {
             if (task->timed_out) {
                 LOGINFORMATIONAL(
@@ -242,10 +198,9 @@ Http2Client::response Http2Client::send(
             }
             // metrics
             if (metrics_) {
-                // Dynamic counters (status code):
-                metrics_->increaseCounter(observed_responses_counter_family_name_, {{"statuscode", std::to_string(res.status_code())}});
+                auto& counter = observed_responses_received_counter_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}});
+                counter.Increment();
 
-                // histograms
                 task->receptionUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
                 double durationUs = (task->receptionUs - task->sendingUs).count();
                 double durationSeconds = durationUs/1000000.0;
@@ -274,8 +229,8 @@ Http2Client::response Http2Client::send(
                     // metrics
                     if (metrics_) {
                         std::size_t responseBodySize = task->data.size();
-                        messages_size_bytes_rx_gauge_->Set(responseBodySize);
-                        messages_size_bytes_rx_histogram_->Observe(responseBodySize);
+                        received_messages_size_bytes_gauge_->Set(responseBodySize);
+                        received_messages_size_bytes_histogram_->Observe(responseBodySize);
                     }
                 }
             });
@@ -288,12 +243,19 @@ Http2Client::response Http2Client::send(
         });
     });
 
-    // waits until 'done' (future) is available using the timeout
+// waits until 'done' (future) is available using the timeout
     if (task->done.wait_for(requestTimeout) == std::future_status::timeout)
     {
         LOGINFORMATIONAL(
             ert::tracing::Logger::informational("Request has timed out", ERT_FILE_LOCATION);
         );
+
+        // metrics
+        if (metrics_) {
+            auto& counter = observed_responses_timedout_counter_family_ptr_->Add({{"method", method}});
+            counter.Increment();
+        }
+
         responseTimeout();
         task->timed_out = true;
         return Http2Client::response{"", -2};

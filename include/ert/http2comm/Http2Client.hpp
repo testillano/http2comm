@@ -121,28 +121,28 @@ private:
     // metrics:
     ert::metrics::Metrics *metrics_{};
 
-    std::string observed_responses_counter_family_name_{}; // dynamic
+    // Create counters families for specific situations, and let dynamic labes for unpredictable (status codes) or small sets (method).
+    // We could even make combinations with methods (POST, GET, PUT, DELETE, HEAD) but we would manage 5x4=20 families instead of 4:
+    ert::metrics::counter_family_t *observed_requests_sents_counter_family_ptr_{};
+    ert::metrics::counter_family_t *observed_requests_unsents_counter_family_ptr_{};
+    ert::metrics::counter_family_t *observed_responses_received_counter_family_ptr_{};
+    ert::metrics::counter_family_t *observed_responses_timedout_counter_family_ptr_{};
 
-    ert::metrics::counter_t *observed_requests_post_counter_{};
-    ert::metrics::counter_t *observed_requests_get_counter_{};
-    ert::metrics::counter_t *observed_requests_put_counter_{};
-    ert::metrics::counter_t *observed_requests_delete_counter_{};
-    ert::metrics::counter_t *observed_requests_head_counter_{};
-    ert::metrics::counter_t *observed_requests_other_counter_{};
-    ert::metrics::counter_t *observed_requests_error_post_counter_{};
-    ert::metrics::counter_t *observed_requests_error_get_counter_{};
-    ert::metrics::counter_t *observed_requests_error_put_counter_{};
-    ert::metrics::counter_t *observed_requests_error_delete_counter_{};
-    ert::metrics::counter_t *observed_requests_error_head_counter_{};
-    ert::metrics::counter_t *observed_requests_error_other_counter_{};
-
+    // Idem for gauges:
+    ert::metrics::gauge_family_t *responses_delay_seconds_gauge_family_ptr_{};
     ert::metrics::gauge_t *responses_delay_seconds_gauge_{};
-    ert::metrics::gauge_t *messages_size_bytes_rx_gauge_{};
-    ert::metrics::gauge_t *messages_size_bytes_tx_gauge_{};
+    ert::metrics::gauge_family_t *sent_messages_size_bytes_gauge_family_ptr_{};
+    ert::metrics::gauge_t *sent_messages_size_bytes_gauge_{};
+    ert::metrics::gauge_family_t *received_messages_size_bytes_gauge_family_ptr_{};
+    ert::metrics::gauge_t *received_messages_size_bytes_gauge_{};
 
+    // Idem for histograms:
+    ert::metrics::histogram_family_t *responses_delay_seconds_histogram_family_ptr_{};
     ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
-    ert::metrics::histogram_t *messages_size_bytes_rx_histogram_{};
-    ert::metrics::histogram_t *messages_size_bytes_tx_histogram_{};
+    ert::metrics::histogram_family_t *sent_messages_size_bytes_histogram_family_ptr_{};
+    ert::metrics::histogram_t *sent_messages_size_bytes_histogram_{};
+    ert::metrics::histogram_family_t *received_messages_size_bytes_histogram_family_ptr_{};
+    ert::metrics::histogram_t *received_messages_size_bytes_histogram_{};
 
     std::atomic<std::uint64_t> reception_id_{};
     std::atomic<std::size_t> maximum_request_body_size_{};

@@ -12,7 +12,7 @@ ARG ert_logger_ver=v1.1.0
 ARG ert_queuedispatcher_ver=v1.0.3
 ARG jupp0r_prometheuscpp_ver=v0.13.0
 ARG civetweb_civetweb_ver=v1.14
-ARG ert_metrics_ver=v1.0.4
+ARG ert_metrics_ver=v1.1.0
 
 ARG base_os=ubuntu
 RUN if [ "${base_os}" = "alpine" ] ; then apk update && apk add doxygen graphviz && rm -rf /var/cache/apk/* ; elif [ "${base_os}" = "ubuntu" ] ; then apt-get update && apt-get install -y doxygen graphviz && apt-get clean ; fi

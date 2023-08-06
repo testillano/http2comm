@@ -100,6 +100,14 @@ void Stream::reception(bool congestion)
             }
             else
             {
+                // VALID RECEPTION
+
+                // metrics
+                if (server_->metrics_) {
+                    auto& counter = server_->observed_requests_accepted_counter_family_ptr_->Add({{"method", req_.method()}});
+                    counter.Increment();
+                }
+
                 server_->receive(reception_id_, req_, request_body_, reception_timestamp_us_, status_code_, response_headers_, response_body_, responseDelayMs);
             }
         }
@@ -201,37 +209,16 @@ void Stream::close() {
     std::size_t requestBodySize = request_body_.size();
     std::size_t responseBodySize = response_body_.size();
 
-    server_->messages_size_bytes_rx_gauge_->Set(requestBodySize);
-    server_->messages_size_bytes_tx_gauge_->Set(responseBodySize);
+    server_->received_messages_size_bytes_gauge_->Set(requestBodySize);
+    server_->sent_messages_size_bytes_gauge_->Set(responseBodySize);
 
     server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
-    server_->messages_size_bytes_rx_histogram_->Observe(requestBodySize);
-    server_->messages_size_bytes_tx_histogram_->Observe(responseBodySize);
+    server_->received_messages_size_bytes_histogram_->Observe(requestBodySize);
+    server_->sent_messages_size_bytes_histogram_->Observe(responseBodySize);
 
     // counters
-
-    // Dynamic counters (status code):
-    server_->metrics_->increaseCounter(server_->observed_responses_counter_family_name_, {{"statuscode", std::to_string(status_code_)}});
-
-    std::string method = req_.method();
-    if (method == "POST") {
-        server_->observed_requests_post_counter_->Increment();
-    }
-    else if (method == "GET") {
-        server_->observed_requests_get_counter_->Increment();
-    }
-    else if (method == "PUT") {
-        server_->observed_requests_put_counter_->Increment();
-    }
-    else if (method == "DELETE") {
-        server_->observed_requests_delete_counter_->Increment();
-    }
-    else if (method == "HEAD") {
-        server_->observed_requests_head_counter_->Increment();
-    }
-    else {
-        server_->observed_requests_other_counter_->Increment();
-    }
+    auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    counter.Increment();
 }
 
 void Stream::error() {
