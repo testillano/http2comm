@@ -73,24 +73,26 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
 
     if (metrics_) {
 
-        observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_sents_total"), std::string("Http2 total requests sents observed in ") + name_));
-        observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_unsent_total"), std::string("Http2 total requests unsents observed in ") + name_));
-        observed_responses_received_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_received_total"), std::string("Http2 total responses received observed in ") + name_));
-        observed_responses_timedout_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_timedout_total"), std::string("Http2 total responses timed-out observed in ") + name_));
+        ert::metrics::labels_t familyLabels = {{"source", name_}};
 
-        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Http2 message responses delay gauge (seconds) in ") + name_));
-        responses_delay_seconds_gauge_ = &(responses_delay_seconds_gauge_family_ptr_->Add({}));
-        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Http2 sent messages sizes gauge (bytes) in ") + name_));
-        sent_messages_size_bytes_gauge_ = &(sent_messages_size_bytes_gauge_family_ptr_->Add({}));
-        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Http2 received messages sizes gauge (bytes) in ") + name_));
-        received_messages_size_bytes_gauge_ = &(received_messages_size_bytes_gauge_family_ptr_->Add({}));
+        observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_sents_counter"), std::string("Requests sents observed counter in ") + name_, familyLabels));
+        observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_unsent_counter"), std::string("Requests unsents observed counter in ") + name_, familyLabels));
+        observed_responses_received_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_received_counter"), std::string("Responses received observed counter in ") + name_, familyLabels));
+        observed_responses_timedout_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_timedout_counter"), std::string("Responses timed-out observed counter in ") + name_, familyLabels));
 
-        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Http2 message responses delay histogram (seconds) in ") + name_));
-        responses_delay_seconds_histogram_ = &(responses_delay_seconds_histogram_family_ptr_->Add({}, responseDelaySecondsHistogramBucketBoundaries));
-        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes_histogram"), std::string("Http2 sent messages sizes histogram (bytes) in ") + name_));
-        sent_messages_size_bytes_histogram_ = &(sent_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
-        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes_histogram"), std::string("Http2 received messages sizes histogram (bytes) in ") + name_));
-        received_messages_size_bytes_histogram_ = &(received_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries));
+        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Message responses delay gauge (seconds) in ") + name_, familyLabels));
+        responses_delay_seconds_gauge_ = &(responses_delay_seconds_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
+        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Sent messages sizes gauge (bytes) in ") + name_, familyLabels));
+        sent_messages_size_bytes_gauge_ = &(sent_messages_size_bytes_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
+        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Received messages sizes gauge (bytes) in ") + name_, familyLabels));
+        received_messages_size_bytes_gauge_ = &(received_messages_size_bytes_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
+
+        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds_histogram"), std::string("Message responses delay histogram (seconds) in ") + name_, familyLabels));
+        responses_delay_seconds_histogram_ = &(responses_delay_seconds_histogram_family_ptr_->Add({}, responseDelaySecondsHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
+        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes_histogram"), std::string("Sent messages sizes histogram (bytes) in ") + name_, familyLabels));
+        sent_messages_size_bytes_histogram_ = &(sent_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
+        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes_histogram"), std::string("Received messages sizes histogram (bytes) in ") + name_, familyLabels));
+        received_messages_size_bytes_histogram_ = &(received_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
     }
 }
 

@@ -112,7 +112,6 @@ private:
         std::chrono::microseconds receptionUs;
     };
 
-    std::string name_{}; // used for metrics:
     // Metric names should be in lowercase and separated by underscores (_).
     // Metric names should start with a letter or an underscore (_).
     // Metric names should be descriptive and meaningful for their purpose.
@@ -147,11 +146,29 @@ private:
     std::atomic<std::uint64_t> reception_id_{};
     std::atomic<std::size_t> maximum_request_body_size_{};
 
+    std::unique_ptr<Http2Connection> connection_;
+    std::string host_;
+    std::string port_;
+    bool secure_;
+    std::shared_timed_mutex mutex_;
+
+    void reconnect();
+    std::string getUri(const std::string &path, const std::string &scheme = "" /* http or https by default, but could be forced here */);
+
+protected:
+    std::string name_{};
+
 public:
     /**
      * Class constructor given host, port and secure connection indicator
      *
-     * @param name Client name (lower case, as it is used to name prometheus metrics).
+     * @param name client name. It may be used to prefix the name of metrics families
+     * (counters, gauges, histograms), so consider to provide a compatible name ([a-zA-Z0-9:_]).
+     * A good name convention would include the application name and the endpoint identification,
+     * for example:
+     *   h2agent_traffic_client_myClient4
+     *   udp_server_h2client[_traffic_client]
+     *
      * @param host Endpoint host
      * @param port Endpoint port
      * @param secure Secure connection. False by default
@@ -161,6 +178,8 @@ public:
 
     /**
     * Enable metrics
+    *
+    * The name of families created will be prefixed by the class name given in the constructor.
     *
     *  @param metrics Optional metrics object to compute counters and histograms
     *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
@@ -206,16 +225,6 @@ public:
      * @return string with connection status (NotOpen, Open, Closed)
      */
     std::string getConnectionStatus() const;
-
-private:
-    std::unique_ptr<Http2Connection> connection_;
-    std::string host_;
-    std::string port_;
-    bool secure_;
-    std::shared_timed_mutex mutex_;
-
-    void reconnect();
-    std::string getUri(const std::string &path, const std::string &scheme = "" /* http or https by default, but could be forced here */);
 };
 
 }

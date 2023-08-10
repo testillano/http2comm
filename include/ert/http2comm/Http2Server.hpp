@@ -62,7 +62,6 @@ namespace http2comm
 class Http2Server
 {
     std::string server_key_password_{};
-    std::string name_{}; // used for metrics:
     // Metric names should be in lowercase and separated by underscores (_).
     // Metric names should start with a letter or an underscore (_).
     // Metric names should be descriptive and meaningful for their purpose.
@@ -106,13 +105,20 @@ class Http2Server
 protected:
 
     nghttp2::asio_http2::server::http2 server_;
+    std::string name_{};
 
 public:
 
     /**
     *  Class constructor
     *
-    *  @param name Server name (lower case, as it is used to name prometheus metrics).
+    * @param name Server name. It may be used to prefix the name of metrics families
+    * (counters, gauges, histograms), so consider to provide a compatible name ([a-zA-Z0-9:_]).
+    * A good name convention would include the application name and the endpoint identification,
+    * for example:
+    *   h2agent_traffic_server
+    *   h2agentB_traffic_server
+    *
     *  @param workerThreads number of worker threads.
     *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
     *  @param timerIoContext Optional io context to manage response delays
@@ -153,6 +159,8 @@ public:
 
     /**
     * Enable metrics
+    *
+    * The name of families created will be prefixed by the class name given in the constructor.
     *
     *  @param metrics Optional metrics object to compute counters and histograms
     *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
