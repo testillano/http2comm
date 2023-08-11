@@ -110,21 +110,23 @@ protected:
 public:
 
     /**
-    *  Class constructor
+    * Class constructor
     *
-    * @param name Server name. It may be used to prefix the name of metrics families
-    * (counters, gauges, histograms), so consider to provide a compatible name ([a-zA-Z0-9:_]).
-    * A good name convention would include the application name and the endpoint identification,
-    * for example:
-    *   h2agent_traffic_server
-    *   h2agentB_traffic_server
+    * @param name class name. It may be used to prefix the family name for every metric managed by
+    * the class (counters, gauges, histograms), so consider to provide a compatible metrics name
+    * ([a-zA-Z0-9:_]). You may also avoid dynamic names to build predictable grafana dashboards.
+    * Dynamic information shall be passed to enableMetrics() to be part of 'source' label. For
+    * example, the application generic name (project) and HTTP2 endpoint category would be
+    * appropriate class names:
     *
-    *  @param workerThreads number of worker threads.
-    *  @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
-    *  @param timerIoContext Optional io context to manage response delays
-    *  @param queueDispatcherMaxSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
-    *  idle consumer threads, and queue dispatcher size is over this value. Defaults to -1 which means 'no limit' to grow the queue (this probably implies response time degradation).
-    *  So, to enable the described congestion control algorithm, provide a non-negative value.
+    * - h2agent_traffic_server
+    *
+    * @param workerThreads number of worker threads.
+    * @param maxWorkerThreads number of maximum worker threads which internal processing could grow to. Defaults to '0' which means that maximum equals to provided worker threads.
+    * @param timerIoContext Optional io context to manage response delays
+    * @param queueDispatcherMaxSize This library implements a simple congestion control algorithm which will indicate congestion status when queue dispatcher (when used) has no
+    * idle consumer threads, and queue dispatcher size is over this value. Defaults to -1 which means 'no limit' to grow the queue (this probably implies response time degradation).
+    * So, to enable the described congestion control algorithm, provide a non-negative value.
     */
     Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads = 0, boost::asio::io_context *timerIoContext = nullptr, int queueDispatcherMaxSize = -1 /* no limit */);
     virtual ~Http2Server();
@@ -160,15 +162,19 @@ public:
     /**
     * Enable metrics
     *
-    * The name of families created will be prefixed by the class name given in the constructor.
-    *
     *  @param metrics Optional metrics object to compute counters and histograms
     *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
     *  @param messageSizeBytesHistogramBucketBoundaries Optional bucket boundaries for message size bytes histogram
+    *  @param source Source label for prometheus metrics. If missing, class name will be taken (even being redundant with
+    *  family name prefix as will ease metrics filtering anyway). A good source convention could be the process name and
+    *  the endpoint identification:
+    *
+    *  - h2agent[_traffic_server]: optional endpoint category, as it would be deducted from family name
+    *  - h2agentB
     */
     void enableMetrics(ert::metrics::Metrics *metrics,
                        const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries = {},
-                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {});
+                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {}, const std::string &source = "");
 
     /**
     * Sets the server key password to use with TLS/SSL

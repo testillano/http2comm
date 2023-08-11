@@ -162,12 +162,14 @@ public:
     /**
      * Class constructor given host, port and secure connection indicator
      *
-     * @param name client name. It may be used to prefix the name of metrics families
-     * (counters, gauges, histograms), so consider to provide a compatible name ([a-zA-Z0-9:_]).
-     * A good name convention would include the application name and the endpoint identification,
-     * for example:
-     *   h2agent_traffic_client_myClient4
-     *   udp_server_h2client[_traffic_client]
+     * @param name class name. It may be used to prefix the family name for every metric managed by
+     * the class (counters, gauges, histograms), so consider to provide a compatible metrics name
+     * ([a-zA-Z0-9:_]). You may also avoid dynamic names to build predictable grafana dashboards.
+     * Dynamic information shall be passed to enableMetrics() to be part of 'source' label. For
+     * example, the application generic name (project) and HTTP2 endpoint category would be
+     * appropriate class names:
+     *
+     * - h2agent_traffic_client
      *
      * @param host Endpoint host
      * @param port Endpoint port
@@ -179,15 +181,22 @@ public:
     /**
     * Enable metrics
     *
-    * The name of families created will be prefixed by the class name given in the constructor.
-    *
     *  @param metrics Optional metrics object to compute counters and histograms
     *  @param responseDelaySecondsHistogramBucketBoundaries Optional bucket boundaries for response delay seconds histogram
     *  @param messageSizeBytesHistogramBucketBoundaries Optional bucket boundaries for message size bytes histogram
+    *  @param source Source label for prometheus metrics. If missing, class name will be taken (even being redundant with
+    *  family name prefix as will ease metrics filtering anyway). A good source convention could be the process name and
+    *  the endpoint identification:
+    *
+    *  - h2agent[_traffic_client]_myClientToB: optional endpoint category, as it would be deducted from endpoint identifier itself or family name
+    *  - h2agent_myClientToA
+    *  - h2agentB_myClientToA
+    *  - udp_server_h2client[_myClientToA]: optional endpoint identifier as could be inferred from process name, because
+    *                                       'udp-server-h2client' application has only one client
     */
     void enableMetrics(ert::metrics::Metrics *metrics,
                        const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries = {},
-                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {});
+                       const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {}, const std::string &source = "");
 
     /**
      * Send request to the server
