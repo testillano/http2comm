@@ -75,28 +75,20 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
         ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_:source)}};
 
         observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_sents_counter"), std::string("Requests sents observed counter in ") + name_, familyLabels));
-        ert::metrics::counter_t *observed_requests_sents_counter = &(observed_requests_sents_counter_family_ptr_->Add({{"method", ""}})); // preventive creation: this way it will be scraped even not processed and will ease dashboard creation
         observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_unsent_counter"), std::string("Requests unsents observed counter in ") + name_, familyLabels));
-        ert::metrics::counter_t *observed_requests_unsents_counter = &(observed_requests_unsents_counter_family_ptr_->Add({{"method", ""}})); // preventive creation: this way it will be scraped even not processed and will ease dashboard creation
         observed_responses_received_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_received_counter"), std::string("Responses received observed counter in ") + name_, familyLabels));
-        ert::metrics::counter_t *observed_responses_received_counter = &(observed_responses_received_counter_family_ptr_->Add({{"method", ""}, {"status_code", ""}})); // preventive creation: this way it will be scraped even not processed and will ease dashboard creation
         observed_responses_timedout_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_timedout_counter"), std::string("Responses timed-out observed counter in ") + name_, familyLabels));
-        ert::metrics::counter_t *observed_responses_timedout_counter = &(observed_responses_timedout_counter_family_ptr_->Add({{"method", ""}})); // preventive creation: this way it will be scraped even not processed and will ease dashboard creation
 
         responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Message responses delay gauge (seconds) in ") + name_, familyLabels));
-        responses_delay_seconds_gauge_ = &(responses_delay_seconds_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
         sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Sent messages sizes gauge (bytes) in ") + name_, familyLabels));
-        sent_messages_size_bytes_gauge_ = &(sent_messages_size_bytes_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
         received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Received messages sizes gauge (bytes) in ") + name_, familyLabels));
-        received_messages_size_bytes_gauge_ = &(received_messages_size_bytes_gauge_family_ptr_->Add({})); // we could create ad-hoc gauges for each http2 method, but it is probably overkilling
 
-        // Omit 'histogram' from family name, because it is confusing: this kind of metric generates 'bucket', 'sum' and 'count' which are good enough to understand the concept behind (only bucket is histogram):
         responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds"), std::string("Message responses delay (seconds) in ") + name_, familyLabels));
-        responses_delay_seconds_histogram_ = &(responses_delay_seconds_histogram_family_ptr_->Add({}, responseDelaySecondsHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
         sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes"), std::string("Sent messages sizes (bytes) in ") + name_, familyLabels));
-        sent_messages_size_bytes_histogram_ = &(sent_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
         received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes"), std::string("Received messages sizes (bytes) in ") + name_, familyLabels));
-        received_messages_size_bytes_histogram_ = &(received_messages_size_bytes_histogram_family_ptr_->Add({}, messageSizeBytesHistogramBucketBoundaries)); // we could create ad-hoc histograms for each http2 method, but it is probably overkilling
+
+        response_delay_seconds_histogram_bucket_boundaries_ = responseDelaySecondsHistogramBucketBoundaries;
+        message_size_bytes_histogram_bucket_boundaries_ = messageSizeBytesHistogramBucketBoundaries;
     }
 }
 
@@ -152,8 +144,10 @@ Http2Client::response Http2Client::send(
         counter.Increment();
 
         std::size_t requestBodySize = body.size();
-        sent_messages_size_bytes_gauge_->Set(requestBodySize);
-        sent_messages_size_bytes_histogram_->Observe(requestBodySize);
+        auto& gauge = sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", method}});
+        gauge.Set(requestBodySize);
+        auto& histogram = sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", method}}, message_size_bytes_histogram_bucket_boundaries_);
+        histogram.Observe(requestBodySize);
     }
 
     auto url = getUri(path);
@@ -214,12 +208,14 @@ Http2Client::response Http2Client::send(
                     std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
                     ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
                 );
-                responses_delay_seconds_gauge_->Set(durationSeconds);
-                responses_delay_seconds_histogram_->Observe(durationSeconds);
+                auto& gauge = responses_delay_seconds_gauge_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}});
+                gauge.Set(durationSeconds);
+                auto& histogram = responses_delay_seconds_histogram_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}}, response_delay_seconds_histogram_bucket_boundaries_);
+                histogram.Observe(durationSeconds);
             }
 
             res.on_data(
-                [task, &res, this](const uint8_t* data, std::size_t len)
+                [task, &res, &method, this](const uint8_t* data, std::size_t len)
             {
                 if (len > 0)
                 {
@@ -235,8 +231,10 @@ Http2Client::response Http2Client::send(
                     // metrics
                     if (metrics_) {
                         std::size_t responseBodySize = task->data.size();
-                        received_messages_size_bytes_gauge_->Set(responseBodySize);
-                        received_messages_size_bytes_histogram_->Observe(responseBodySize);
+                        auto& gauge = received_messages_size_bytes_gauge_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}});
+                        gauge.Set(responseBodySize);
+                        auto& histogram = received_messages_size_bytes_histogram_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}}, message_size_bytes_histogram_bucket_boundaries_);
+                        histogram.Observe(responseBodySize);
                     }
                 }
             });
