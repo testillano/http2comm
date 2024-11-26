@@ -129,19 +129,15 @@ private:
 
     // Idem for gauges:
     ert::metrics::gauge_family_t *responses_delay_seconds_gauge_family_ptr_{};
-    ert::metrics::gauge_t *responses_delay_seconds_gauge_{};
     ert::metrics::gauge_family_t *sent_messages_size_bytes_gauge_family_ptr_{};
-    ert::metrics::gauge_t *sent_messages_size_bytes_gauge_{};
     ert::metrics::gauge_family_t *received_messages_size_bytes_gauge_family_ptr_{};
-    ert::metrics::gauge_t *received_messages_size_bytes_gauge_{};
 
     // Idem for histograms:
     ert::metrics::histogram_family_t *responses_delay_seconds_histogram_family_ptr_{};
-    ert::metrics::histogram_t *responses_delay_seconds_histogram_{};
     ert::metrics::histogram_family_t *sent_messages_size_bytes_histogram_family_ptr_{};
-    ert::metrics::histogram_t *sent_messages_size_bytes_histogram_{};
     ert::metrics::histogram_family_t *received_messages_size_bytes_histogram_family_ptr_{};
-    ert::metrics::histogram_t *received_messages_size_bytes_histogram_{};
+    ert::metrics::bucket_boundaries_t response_delay_seconds_histogram_bucket_boundaries_;
+    ert::metrics::bucket_boundaries_t message_size_bytes_histogram_bucket_boundaries_; // both received/sent (simplification)
 
     std::atomic<std::uint64_t> reception_id_{};
     std::atomic<std::size_t> maximum_request_body_size_{};

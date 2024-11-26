@@ -204,17 +204,24 @@ void Stream::close() {
         std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
         ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
     );
-    server_->responses_delay_seconds_gauge_->Set(durationSeconds);
+
+    auto& gauge = server_->responses_delay_seconds_gauge_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    gauge.Set(durationSeconds);
 
     std::size_t requestBodySize = request_body_.size();
     std::size_t responseBodySize = response_body_.size();
 
-    server_->received_messages_size_bytes_gauge_->Set(requestBodySize);
-    server_->sent_messages_size_bytes_gauge_->Set(responseBodySize);
+    auto& gauge2 = server_->received_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}});
+    gauge2.Set(requestBodySize);
+    auto& gauge3 = server_->sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    gauge3.Set(responseBodySize);
 
-    server_->responses_delay_seconds_histogram_->Observe(durationSeconds);
-    server_->received_messages_size_bytes_histogram_->Observe(requestBodySize);
-    server_->sent_messages_size_bytes_histogram_->Observe(responseBodySize);
+    auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
+    histogram.Observe(durationSeconds);
+    auto& histogram2 = server_->received_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}}, server_->message_size_bytes_histogram_bucket_boundaries_);
+    histogram2.Observe(durationSeconds);
+    auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}}, server_->message_size_bytes_histogram_bucket_boundaries_);
+    histogram3.Observe(durationSeconds);
 
     // counters
     auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
