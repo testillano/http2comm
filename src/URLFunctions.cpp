@@ -37,27 +37,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <nghttp2/asio_http2.h>
 
 #include <string>
 #include <regex>
+//#include <iomanip>
+//#include <cctype>
+
 
 #include <ert/http2comm/URLFunctions.hpp>
 
 
-namespace nghttp2
-{
-namespace util
-{
-// This percent_encode function is declared in util.h file from
-// nghttp2 source code and is present in the library itself, but
-// the util.h header file is not installed in /usr/local/include/nghttp2
-// We declare it here so it can be used in the
-// add_query_parameters_to_uri anonymous function
-extern std::string percent_encode(const std::string& target);
-}
-}
-
+const char UPPER_XDIGITS[] = "0123456789ABCDEF";
 
 namespace ert
 {
@@ -65,7 +55,22 @@ namespace http2comm
 {
 std::string URLFunctions::encode(const std::string& decodedUrl)
 {
-    return nghttp2::util::percent_encode(decodedUrl);
+    std::string result;
+    result.reserve(decodedUrl.length() * 3); // minimize reallocations in std::string
+    // (we multiply by 3 because it is the worst case: %XX for every character)
+
+    for (unsigned char c : decodedUrl) {
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') { // unreserved (RFC3986)
+            result += c;
+        } else {
+            // encode as %XX
+            result += '%';
+            result += UPPER_XDIGITS[c >> 4]; // first digit
+            result += UPPER_XDIGITS[c & 0x0F]; // second digit
+        }
+    }
+
+    return result;
 }
 
 std::string URLFunctions::decode(const std::string& encodedUrl)
