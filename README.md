@@ -5,6 +5,7 @@
 [![Ask Me Anything !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/testillano)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/testillano/http2comm/graphs/commit-activity)
 [![Main project workflow](https://github.com/testillano/http2comm/actions/workflows/ci.yml/badge.svg)](https://github.com/testillano/http2comm/actions/workflows/ci.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/testillano/http2comm.svg)](https://github.com/testillano/http2comm/pkgs/container/http2comm)
 
 This library is based on @tatsuhiro-t nghttp2 library (https://github.com/nghttp2/nghttp2).
 It offers a quick way to instantiate a client or server and define their virtual methods to
