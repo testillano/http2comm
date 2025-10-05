@@ -89,8 +89,8 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
     if (metrics_) {
         ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_:source)}};
 
-        observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_accepted_counter"), std::string("Requests accepted observed counter in ") + name_, familyLabels));
-        observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_errored_counter"), std::string("Requests errored observed counter in ") + name_, familyLabels));
+        observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_accepted_counter"), std::string("Requests accepted observed counter in ") + name_, familyLabels));
+        observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_errored_counter"), std::string("Requests errored observed counter in ") + name_, familyLabels));
         observed_responses_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_counter"), std::string("Responses observed counter in ") + name_, familyLabels));
 
         responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Message responses delay gauge (seconds) in ") + name_, familyLabels));

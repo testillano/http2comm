@@ -74,8 +74,8 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
     if (metrics_) {
         ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_:source)}};
 
-        observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_sents_counter"), std::string("Requests sents observed counter in ") + name_, familyLabels));
-        observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_resquests_unsent_counter"), std::string("Requests unsents observed counter in ") + name_, familyLabels));
+        observed_requests_sents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_sents_counter"), std::string("Requests sents observed counter in ") + name_, familyLabels));
+        observed_requests_unsents_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_unsent_counter"), std::string("Requests unsents observed counter in ") + name_, familyLabels));
         observed_responses_received_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_received_counter"), std::string("Responses received observed counter in ") + name_, familyLabels));
         observed_responses_timedout_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_timedout_counter"), std::string("Responses timed-out observed counter in ") + name_, familyLabels));
 
