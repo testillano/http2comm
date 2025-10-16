@@ -138,12 +138,15 @@ Http2Client::response Http2Client::send(
         return Http2Client::response{"", -1};
     }
 
-// metrics
+    // Ignore Body on GET, DELETE and HEAD:
+    const bool noBodyMethod = (method == "GET" || method == "DELETE" || method == "HEAD");
+
+    // metrics
     if (metrics_) {
         auto& counter = observed_requests_sents_counter_family_ptr_->Add({{"method", method}});
         counter.Increment();
 
-        std::size_t requestBodySize = body.size();
+        std::size_t requestBodySize = (noBodyMethod ? 0:body.size());
         auto& gauge = sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", method}});
         gauge.Set(requestBodySize);
         auto& histogram = sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", method}}, message_size_bytes_histogram_bucket_boundaries_);
@@ -154,14 +157,13 @@ Http2Client::response Http2Client::send(
 
     LOGINFORMATIONAL(
         ert::tracing::Logger::informational(ert::tracing::Logger::asString("Sending %s request to url: %s; body: %s; headers: %s; %s",
-                                            method.c_str(), url.c_str(), body.c_str(), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
+                                            method.c_str(), url.c_str(), (noBodyMethod ? "<none>":body.c_str()), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
     );
 
     auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
                            const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
     {
-
-        return sess.submit(ec, method, url, body, headers);
+        return noBodyMethod ? sess.submit(ec, method, url, headers):sess.submit(ec, method, url, body, headers);
     };
 
     const auto& session = connection_->getSession();
