@@ -108,7 +108,7 @@ build_project() {
   echo "=== Format source code ==="
   echo
   sources=$(find . -name "*.hpp" -o -name "*.cpp")
-  docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
+  docker run -i --rm -v $PWD:/data --user $(id -u):$(id -g) frankwolf/astyle ${sources}
 
   echo
   echo "=== Build http2comm project ==="

@@ -42,6 +42,7 @@ SOFTWARE.
 #include <string>
 #include <thread>
 #include <chrono>
+#include <memory>
 #include <functional>
 #include <condition_variable>
 
@@ -80,10 +81,9 @@ public:
     };
 
     // Seccion factory with io_context, host, port and secure inputs:
-    nghttp2::asio_http2::client::session createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure);
+    std::unique_ptr<nghttp2::asio_http2::client::session> createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure);
 
-public:
-    /// Class constructors
+    // Class constructors
 
     /**
      * Class constructor given host and port
@@ -183,6 +183,13 @@ public:
     bool waitToBeConnected();
 
     /**
+     * Reconnect the session
+     *
+     * \return true if connection is finally established
+     */
+    bool reconnect();
+
+    /**
      * Wait for the client to be disconnected from the server
      *
      * \param max_time Max time to wait for the client to disconnect
@@ -228,7 +235,7 @@ private:
     /// ASIO attributes
     boost::asio::io_context io_context_;
     boost::asio::io_context::work work_;
-    nghttp2::asio_http2::client::session session_;
+    std::unique_ptr<nghttp2::asio_http2::client::session> session_;
 
     /// Class attributes
     Status status_;

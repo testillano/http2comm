@@ -56,28 +56,28 @@ namespace ert
 {
 namespace http2comm
 {
-nghttp2::asio_http2::client::session Http2Connection::createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure) {
+std::unique_ptr<nghttp2::asio_http2::client::session> Http2Connection::createSession(boost::asio::io_context &ioContext, const std::string &host, const std::string &port, bool secure) {
     if (secure)
     {
         boost::system::error_code ec;
         boost::asio::ssl::context tls_ctx(boost::asio::ssl::context::sslv23);
         tls_ctx.set_default_verify_paths();
         nghttp2::asio_http2::client::configure_tls_context(ec, tls_ctx);
-        return nghttp2::asio_http2::client::session(ioContext, tls_ctx, host, port);
+        return std::make_unique<nghttp2::asio_http2::client::session>(ioContext, tls_ctx, host, port);
     }
 
-    return nghttp2::asio_http2::client::session(ioContext, host, port);
+    return std::make_unique<nghttp2::asio_http2::client::session>(ioContext, host, port);
 }
 
 void Http2Connection::configureSession() {
-    session_.on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
+    session_->on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
     {
         status_ = Status::OPEN;
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connected to '%s'", asString().c_str()), ERT_FILE_LOCATION));
         status_change_cond_var_.notify_one();
     });
 
-    session_.on_error([this](const boost::system::error_code & ec)
+    session_->on_error([this](const boost::system::error_code & ec)
     {
         notifyClose();
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Error on '%s'", asString().c_str()), ERT_FILE_LOCATION));
@@ -92,16 +92,34 @@ Http2Connection::Http2Connection(const std::string& host,
     host_(host),
     port_(port),
     secure_(secure),
-    session_(nghttp2::asio_http2::client::session(createSession(io_context_, host, port, secure)))
+    session_(createSession(io_context_, host, port, secure))
 {
     configureSession();
-    thread_ = std::thread([&] { io_context_.run(); }); // only 1 thread !!! That's why Http2Client post is "blocking" and we must
-    // build an external IO CONTEXT with more workers than 1, to post sends there.
+    thread_ = std::thread([&] { io_context_.run(); }); // 1 thread
 }
 
 Http2Connection::~Http2Connection()
 {
     closeImpl();
+}
+
+bool Http2Connection::reconnect() {
+    session_.reset();
+    auto new_session_ptr = createSession(io_context_, host_, port_, secure_);
+    if (!new_session_ptr) {
+        return false;
+    }
+
+    session_ = std::move(new_session_ptr);
+    configureSession();
+    status_ = Status::NOT_OPEN; // important to make waitToBeConnected() works:
+    if (waitToBeConnected())
+    {
+        return true;
+    }
+
+    LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to reconnect '%s'", asString().c_str()), ERT_FILE_LOCATION));
+    return false; // new_session_ptr will be destroyed
 }
 
 void Http2Connection::notifyClose()
@@ -127,19 +145,22 @@ void Http2Connection::closeImpl()
 
     if (isConnected())
     {
-        session_.shutdown();
+        session_->shutdown();
     }
 }
 
 void Http2Connection::close()
 {
-    session_.shutdown();
+    session_->shutdown();
     notifyClose();
 }
 
 nghttp2::asio_http2::client::session& Http2Connection::getSession()
 {
-    return session_;
+    if (!session_) {
+        throw std::runtime_error("Session is not initialized/connected.");
+    }
+    return *session_;
 }
 
 const std::string& Http2Connection::getHost() const

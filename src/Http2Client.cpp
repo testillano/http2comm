@@ -56,13 +56,43 @@ Http2Client::Http2Client(const std::string& name, const std::string& host, const
       host_(host),
       port_(port),
       secure_(secure),
-      connection_(std::make_unique<Http2Connection>(host, port, secure))
+      connection_(std::make_shared<Http2Connection>(host, port, secure))
 {
 
     if (!connection_->waitToBeConnected())
     {
         LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to connect '%s'", connection_->asString().c_str()), ERT_FILE_LOCATION));
     }
+}
+
+std::string Http2Client::response::asString() {
+    std::string result{};
+
+    result += "Response Status Code: ";
+    switch (statusCode) {
+    case -1:
+        result += "-1 (initial connection error)";
+        break;
+    case -2:
+        result += "-2 (request timeout)";
+        break;
+    case -3:
+        result += "-3 (submit error)";
+        break;
+    case -4:
+        result += "-4 (connection closed during wait)";
+        break;
+    default:
+        result += std::to_string(statusCode);
+    }
+
+    result += " | Response Body: ";
+    result += (body.empty() ? "<none>":body);
+    result += " | Response Headers: ";
+    std::string aux = headersAsString(headers);
+    result += (aux.empty() ? "<none>":aux);
+
+    return result;
 }
 
 void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
@@ -98,28 +128,23 @@ void Http2Client::reconnect()
     {
         return;
     }
-    connection_.reset();
 
-    if (auto conn = std::make_unique<Http2Connection>(host_, port_, secure_);
-            conn->waitToBeConnected())
-    {
-        connection_ = std::move(conn);
-    }
-    else
-    {
-        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unable to reconnect '%s'", conn->asString().c_str()), ERT_FILE_LOCATION));
-        conn.reset();
-    }
+    connection_->reconnect();
+
     mutex_.unlock();
 }
 
-Http2Client::response Http2Client::send(
+void Http2Client::async_send(
     const std::string &method,
     const std::string &path,
     const std::string &body,
     const nghttp2::asio_http2::header_map &headers,
-    const std::chrono::milliseconds& requestTimeout)
+    std::function<void(Http2Client::response)> responseCallback,
+    const std::chrono::milliseconds& requestTimeoutMs)
 {
+    std::shared_ptr<Http2Client> self = shared_from_this();
+    auto cb = std::move(responseCallback);
+
     if (!connection_ || !connection_->isConnected())
     {
         LOGINFORMATIONAL(
@@ -135,7 +160,9 @@ Http2Client::response Http2Client::send(
             counter.Increment();
         }
 
-        return Http2Client::response{"", -1};
+        // Invoke callback
+        cb(Http2Client::response{"", -1});
+        return;
     }
 
     // Ignore Body on GET, DELETE and HEAD:
@@ -160,18 +187,19 @@ Http2Client::response Http2Client::send(
                                             method.c_str(), url.c_str(), (noBodyMethod ? "<none>":body.c_str()), headersAsString(headers).c_str(), connection_->asString().c_str()), ERT_FILE_LOCATION);
     );
 
-    auto submit = [&, url](const nghttp2::asio_http2::client::session & sess,
-                           const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
-    {
-        return noBodyMethod ? sess.submit(ec, method, url, headers):sess.submit(ec, method, url, body, headers);
-    };
-
-    const auto& session = connection_->getSession();
     auto task = std::make_shared<Http2Client::task>();
+    const auto& session = connection_->getSession();
+    auto& ioContext = session.io_service();
 
-    session.io_service().post([&, task, method, headers, this]
+    ioContext.post([self, cb, noBodyMethod, requestTimeoutMs, task, url = std::move(url), method, headers, body, this]
     {
         boost::system::error_code ec;
+
+        auto submit = [url, body, method, noBodyMethod](const nghttp2::asio_http2::client::session & sess,
+                const nghttp2::asio_http2::header_map & headers, boost::system::error_code & ec)
+        {
+            return noBodyMethod ? sess.submit(ec, method, url, headers):sess.submit(ec, method, url, body, headers);
+        };
 
         // // example to add headers:
         // nghttp2::asio_http2::header_value ctValue = {"application/json", 0};
@@ -179,25 +207,69 @@ Http2Client::response Http2Client::send(
         // headers.emplace("content-type", ctValue);
         // headers.emplace("content-length", clValue);
 
+        // Timer for expiration control (before submitting).
+        // It must be cancelled in on_response() lambda.
+        const auto& session = self->connection_->getSession();
+        auto timer = std::make_shared<boost::asio::deadline_timer>(session.io_service());
+        timer->expires_from_now(boost::posix_time::milliseconds(requestTimeoutMs.count()));
+        timer->async_wait([&, task, cb, method, timer](const boost::system::error_code& ec) {
+            if (ec != boost::asio::error::operation_aborted) {
+                // Here expiration (before answer):
+                if (!task->timed_out) {
+                    task->timed_out = true;
+
+                    // logging
+                    LOGINFORMATIONAL(
+                        ert::tracing::Logger::informational("Request has timed out", ERT_FILE_LOCATION);
+                    );
+
+                    // metrics
+                    if (metrics_) {
+                        auto& counter = observed_responses_timedout_counter_family_ptr_->Add({{"method", method}});
+                        counter.Increment();
+                    }
+
+                    // Optional: cancel HTTP/2 stream if possible
+                    // req->cancel();
+
+                    // virtual
+                    responseTimeout();
+
+                    // Invoke callback
+                    cb(Http2Client::response{"", -2});
+                }
+            }
+        });
+
         //perform submit
         task->sendingUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
         auto req = submit(session, headers, ec);
         if (!req) {
             ert::tracing::Logger::error("Request submit error, closing connection ...", ERT_FILE_LOCATION);
-            connection_->close();
+            self->connection_->close();
             // TODO OAM: client error, 468 (non-standard http status code)
+
+            if (timer) {
+                timer->cancel();
+            }
+
+            // Invoke callback
+            cb(Http2Client::response{"", -3});
+
             return;
         }
 
         req->on_response(
-            [task, method, this](const nghttp2::asio_http2::client::response & res)
+            [task, cb, timer, method, this](const nghttp2::asio_http2::client::response & res)
         {
+            // Timeout timer
             if (task->timed_out) {
                 LOGINFORMATIONAL(
                     ert::tracing::Logger::informational("Answer received for discarded transaction due to timeout. Ignoring ...", ERT_FILE_LOCATION);
                 );
-                return;
+                return; // no need to cancel timer: it already expired
             }
+
             // metrics
             if (metrics_) {
                 auto& counter = observed_responses_received_counter_family_ptr_->Add({{"method", method}, {"status_code", std::to_string(res.status_code())}});
@@ -217,7 +289,7 @@ Http2Client::response Http2Client::send(
             }
 
             res.on_data(
-                [task, &res, &method, this](const uint8_t* data, std::size_t len)
+                [task, cb, timer, &res, &method, this](const uint8_t* data, std::size_t len)
             {
                 if (len > 0)
                 {
@@ -226,8 +298,14 @@ Http2Client::response Http2Client::send(
                 }
                 else
                 {
-                    //setting the value on 'response' (promise) will unlock 'done' (future)
-                    task->response.set_value(Http2Client::response {task->data, res.status_code(), res.header(), task->sendingUs, task->receptionUs});
+                    // End of transaction (len == 0): we cancel timeout timer before invoking callback
+                    if (timer) {
+                        timer->cancel();
+                    }
+
+                    // Invoke callback
+                    cb(Http2Client::response{task->data, res.status_code(), res.header(), task->sendingUs, task->receptionUs});
+
                     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString(
                             "Request has been answered with status code: %d; data: %s; headers: %s", res.status_code(), task->data.c_str(), headersAsString(res.header()).c_str()), ERT_FILE_LOCATION));
                     // metrics
@@ -243,34 +321,110 @@ Http2Client::response Http2Client::send(
         });
 
         req->on_close(
-            [](uint32_t error_code)
+            [task, cb, timer](uint32_t error_code)
         {
-            //not implemented / not needed
+            if (!task->timed_out) {
+                // Stream was closed before reception
+                if (timer) {
+                    timer->cancel(); // avoid duplicated error by timer
+                }
+
+                // Invoke callback
+                cb(Http2Client::response{"", -4});
+
+                // logging & metrics ?
+            }
+            // return # implicit
         });
     });
+}
 
-// waits until 'done' (future) is available using the timeout
-    if (task->done.wait_for(requestTimeout) == std::future_status::timeout)
+void Http2Client::asyncSend(
+    const std::string &method,
+    const std::string &path,
+    const std::string &body,
+    const nghttp2::asio_http2::header_map &headers,
+    std::function<void(Http2Client::response)> responseCallback,
+    const std::chrono::milliseconds& requestTimeoutMs,
+    const std::chrono::milliseconds& sendDelayMs)
+{
+    if (sendDelayMs.count() <= 0) {
+        return async_send(method, path, body, headers, responseCallback, requestTimeoutMs);
+    }
+
+    const auto& session = connection_->getSession();
+    auto& ioContext = session.io_service();
+
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioContext);
+    timer->expires_after(sendDelayMs);
+
+    auto send_operation = [
+                              this,
+                              timer, // Captura el timer (shared_ptr) para mantenerlo vivo
+                              method,
+                              path,
+                              body,
+                              headers,
+                              // Capturamos el callback y los demás parámetros para la llamada final
+                              responseCallback,
+                              requestTimeoutMs
+                          ]() mutable
     {
-        LOGINFORMATIONAL(
-            ert::tracing::Logger::informational("Request has timed out", ERT_FILE_LOCATION);
-        );
+        LOGDEBUG(ert::tracing::Logger::debug("Pre-send delay completed", ERT_FILE_LOCATION));
+        async_send(method, path, body, headers, responseCallback, requestTimeoutMs);
+    };
 
-        // metrics
-        if (metrics_) {
-            auto& counter = observed_responses_timedout_counter_family_ptr_->Add({{"method", method}});
-            counter.Increment();
+    // Program 'async_wait'
+    timer->async_wait([send_operation](const boost::system::error_code& ec) mutable {
+        if (ec) {
+            // Timer cancelled (i.e. connection broken before delay)
+            if (ec != boost::asio::error::operation_aborted) {
+                // timer errors ?
+            }
+        } else {
+            // Timer expired:
+            send_operation();
+        }
+    });
+}
+
+//std::future<Http2Client::response> Http2Client::send(
+Http2Client::response Http2Client::send(
+    const std::string &method,
+    const std::string &path,
+    const std::string &body,
+    const nghttp2::asio_http2::header_map &headers,
+    const std::chrono::milliseconds& requestTimeoutMs,
+    const std::chrono::milliseconds& sendDelayMs)
+{
+    auto promise = std::make_shared<std::promise<Http2Client::response>>(); // guarantee promise lifecycle until callback is executed
+    std::future<Http2Client::response> future = promise->get_future();
+
+    // To avoid multiple calls to 'promise->set_value' (due to multiple subyacent callback calls):
+    auto satisfied_flag = std::make_shared<std::atomic_bool>(false);
+
+    Http2Client::ResponseCallback callback_wrapper = [promise, satisfied_flag](Http2Client::response res) {
+        if (satisfied_flag->exchange(true)) {
+            // ignore call to avoid multiple set_value/set_exception
+            return;
         }
 
-        responseTimeout();
-        task->timed_out = true;
-        return Http2Client::response{"", -2};
-    }
-    else
-    {
-        return task->done.get();
-    }
+        try {
+            promise->set_value(std::move(res));
+        } catch (...) {
+            try {
+                promise->set_exception(std::current_exception());
+            } catch (const std::future_error& e) {
+                ert::tracing::Logger::error(e.what(), ERT_FILE_LOCATION);
+            }
+        }
+    };
 
+    // Launch async operation with callback wrapper
+    asyncSend(method, path, body, headers, std::move(callback_wrapper), requestTimeoutMs, sendDelayMs);
+
+    // Return future
+    return future.get();
 }
 
 std::string Http2Client::getUri(const std::string& path, const std::string &scheme)

@@ -40,8 +40,10 @@ SOFTWARE.
 #pragma once
 
 #include <string>
-#include <future>
 #include <memory>
+#include <atomic>
+#include <functional>
+#include <future>
 #include <shared_mutex>
 
 #include <nghttp2/asio_http2.h>
@@ -77,12 +79,7 @@ namespace http2comm
 
 class Http2Connection;
 
-typedef std::function <
-const nghttp2::asio_http2::client::request* (const
-        nghttp2::asio_http2::client::session& sess,
-        const nghttp2::asio_http2::header_map& map,
-        boost::system::error_code& ec) > submit_callback;
-class Http2Client
+class Http2Client : public std::enable_shared_from_this<Http2Client>
 {
     //inner classes
 public:
@@ -90,22 +87,19 @@ public:
     struct response
     {
         std::string body;
-        int statusCode; // -1 = connection error
+        int statusCode; // -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait)
         nghttp2::asio_http2::header_map headers;
         std::chrono::microseconds sendingUs;
         std::chrono::microseconds receptionUs;
+
+        std::string asString();
     };
+
+    using ResponseCallback = std::function<void(response)>;
 
 private:
     struct task
     {
-        task()
-        {
-            done = response.get_future();
-        }
-
-        std::promise<Http2Client::response> response;
-        std::future<Http2Client::response> done;
         std::string data; //buffer to store a possible temporary data
         bool timed_out{};
         std::chrono::microseconds sendingUs;
@@ -142,7 +136,8 @@ private:
     std::atomic<std::uint64_t> reception_id_{};
     std::atomic<std::size_t> maximum_request_body_size_{};
 
-    std::unique_ptr<Http2Connection> connection_;
+    //std::unique_ptr<Http2Connection> connection_;
+    std::shared_ptr<Http2Connection> connection_;
     std::string host_;
     std::string port_;
     bool secure_;
@@ -150,6 +145,12 @@ private:
 
     void reconnect();
     std::string getUri(const std::string &path, const std::string &scheme = "" /* http or https by default, but could be forced here */);
+    void async_send(const std::string &method,
+                    const std::string &path,
+                    const std::string &body,
+                    const nghttp2::asio_http2::header_map &headers,
+                    std::function<void(Http2Client::response)> responseCallback,
+                    const std::chrono::milliseconds& requestTimeoutMs);
 
 protected:
     std::string name_{};
@@ -157,6 +158,9 @@ protected:
 public:
     /**
      * Class constructor given host, port and secure connection indicator
+     * This inherits from "shared from this", so you may build a shared pointer:
+     *   std::shared_ptr<ert::http2comm::Http2Client> client;
+     * Any other instantiation will provoke bad weak ptr.
      *
      * @param name class name. It may be used to prefix the family name for every metric managed by
      * the class (counters, gauges, histograms), so consider to provide a compatible metrics name
@@ -172,7 +176,8 @@ public:
      * @param secure Secure connection. False by default
      */
     Http2Client(const std::string &name, const std::string& host, const std::string& port, bool secure = false);
-    virtual ~Http2Client() {};
+
+    virtual ~Http2Client() = default; // {};
 
     /**
     * Enable metrics
@@ -195,21 +200,43 @@ public:
                        const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries = {}, const std::string &source = "");
 
     /**
-     * Send request to the server
+     * Send request to the server (async)
      *
      * @param method Request method (POST, GET, PUT, DELETE, HEAD)
      * @param path Request uri path including optional query parameters
      * @param body Request body
      * @param headers Request headers
-     * @param requestTimeout Request timeout, 1 second by default
+     * @param responseCallback Asynchronous callback to manage response
+     *                         Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait).
+     * @param requestTimeoutMs Request timeout, 1 second by default
+     * @param sendDelayMs Delay for send operation, no delay by default
+     */
+    void asyncSend(const std::string &method,
+                   const std::string &path,
+                   const std::string &body,
+                   const nghttp2::asio_http2::header_map &headers,
+                   std::function<void(Http2Client::response)> responseCallback,
+                   const std::chrono::milliseconds& requestTimeoutMs = std::chrono::milliseconds(1000),
+                   const std::chrono::milliseconds& sendDelayMs = std::chrono::milliseconds(0));
+
+    /**
+     * Send wrapper for asyncSend() which returns a future, so could be used synchronously
      *
-     * @return Response structure. Status code -1 means connection error, and -2 means timeout.
+     * @param method Request method (POST, GET, PUT, DELETE, HEAD)
+     * @param path Request uri path including optional query parameters
+     * @param body Request body
+     * @param headers Request headers
+     * @param requestTimeoutMs Request timeout, 1 second by default
+     * @param sendDelayMs Delay for send operation, no delay by default
+     *
+     * @return Response structure promise. Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait).
      */
     Http2Client::response send(const std::string &method,
                                const std::string &path,
                                const std::string &body,
                                const nghttp2::asio_http2::header_map &headers,
-                               const std::chrono::milliseconds& requestTimeout = std::chrono::milliseconds(1000));
+                               const std::chrono::milliseconds& requestTimeoutMs = std::chrono::milliseconds(1000),
+                               const std::chrono::milliseconds& sendDelayMs = std::chrono::milliseconds(0));
 
     /*
      * Callback for request send expiration.
