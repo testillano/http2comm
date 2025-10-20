@@ -80,7 +80,7 @@ std::string Http2Client::response::asString() {
         result += "-3 (submit error)";
         break;
     case -4:
-        result += "-4 (connection closed during wait)";
+        result += "-4 (http2 stream closed)";
         break;
     default:
         result += std::to_string(statusCode);
@@ -215,8 +215,8 @@ void Http2Client::async_send(
         timer->async_wait([&, task, cb, method, timer](const boost::system::error_code& ec) {
             if (ec != boost::asio::error::operation_aborted) {
                 // Here expiration (before answer):
-                if (!task->timed_out) {
-                    task->timed_out = true;
+                if (!task->timed_out.load()) {
+                    task->timed_out.store(true);
 
                     // logging
                     LOGINFORMATIONAL(
@@ -236,7 +236,10 @@ void Http2Client::async_send(
                     responseTimeout();
 
                     // Invoke callback
-                    cb(Http2Client::response{"", -2});
+                    if (!task->cb_invoked.load()) {
+                        task->cb_invoked.store(true);
+                        cb(Http2Client::response{"", -2});
+                    }
                 }
             }
         });
@@ -254,7 +257,10 @@ void Http2Client::async_send(
             }
 
             // Invoke callback
-            cb(Http2Client::response{"", -3});
+            if (!task->cb_invoked.load()) {
+                task->cb_invoked.store(true);
+                cb(Http2Client::response{"", -3});
+            }
 
             return;
         }
@@ -263,7 +269,7 @@ void Http2Client::async_send(
             [task, cb, timer, method, this](const nghttp2::asio_http2::client::response & res)
         {
             // Timeout timer
-            if (task->timed_out) {
+            if (task->timed_out.load()) {
                 LOGINFORMATIONAL(
                     ert::tracing::Logger::informational("Answer received for discarded transaction due to timeout. Ignoring ...", ERT_FILE_LOCATION);
                 );
@@ -304,7 +310,10 @@ void Http2Client::async_send(
                     }
 
                     // Invoke callback
-                    cb(Http2Client::response{task->data, res.status_code(), res.header(), task->sendingUs, task->receptionUs});
+                    if (!task->cb_invoked.load()) {
+                        task->cb_invoked.store(true);
+                        cb(Http2Client::response{task->data, res.status_code(), res.header(), task->sendingUs, task->receptionUs});
+                    }
 
                     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString(
                             "Request has been answered with status code: %d; data: %s; headers: %s", res.status_code(), task->data.c_str(), headersAsString(res.header()).c_str()), ERT_FILE_LOCATION));
@@ -323,14 +332,17 @@ void Http2Client::async_send(
         req->on_close(
             [task, cb, timer](uint32_t error_code)
         {
-            if (!task->timed_out) {
+            if (!task->timed_out.load()) {
                 // Stream was closed before reception
                 if (timer) {
                     timer->cancel(); // avoid duplicated error by timer
                 }
 
                 // Invoke callback
-                cb(Http2Client::response{"", -4});
+                if (!task->cb_invoked.load()) {
+                    task->cb_invoked.store(true);
+                    cb(Http2Client::response{"", -4});
+                }
 
                 // logging & metrics ?
             }

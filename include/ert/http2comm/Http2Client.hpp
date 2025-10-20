@@ -87,7 +87,7 @@ public:
     struct response
     {
         std::string body;
-        int statusCode; // -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait)
+        int statusCode; // -1(initial connection error), -2(request timeout), -3(submit error), -4(http2 stream closed)
         nghttp2::asio_http2::header_map headers;
         std::chrono::microseconds sendingUs;
         std::chrono::microseconds receptionUs;
@@ -101,9 +101,10 @@ private:
     struct task
     {
         std::string data; //buffer to store a possible temporary data
-        bool timed_out{};
         std::chrono::microseconds sendingUs;
         std::chrono::microseconds receptionUs;
+        std::atomic<bool> cb_invoked = false;
+        std::atomic<bool> timed_out = false;
     };
 
     // Metric names should be in lowercase and separated by underscores (_).
@@ -207,7 +208,7 @@ public:
      * @param body Request body
      * @param headers Request headers
      * @param responseCallback Asynchronous callback to manage response
-     *                         Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait).
+     *                         Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(http2 stream closed).
      * @param requestTimeoutMs Request timeout, 1 second by default
      * @param sendDelayMs Delay for send operation, no delay by default
      */
@@ -229,7 +230,7 @@ public:
      * @param requestTimeoutMs Request timeout, 1 second by default
      * @param sendDelayMs Delay for send operation, no delay by default
      *
-     * @return Response structure promise. Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(connection closed during wait).
+     * @return Response structure promise. Special status codes: -1(initial connection error), -2(request timeout), -3(submit error), -4(http2 stream closed).
      */
     Http2Client::response send(const std::string &method,
                                const std::string &path,
