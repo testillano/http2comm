@@ -185,15 +185,28 @@ void Stream::commit()
         // WORKER THREAD PROCESSING CANNOT BE DONE HERE
         // (nghttp2 pool must be free), SO, IT WILL BE
         // DONE BEFORE commit()
-        self->res_.write_head(self->status_code_, self->response_headers_);
-        self->res_.end(self->response_body_);
+        if (self->status_code_ < 100) {
+            // RST_STREAM and GOAWAY errors (https://datatracker.ietf.org/doc/html/rfc7540#section-7)
+            // (Hex),Nombre,Descripción
+            // 0x0    NO_ERROR              Normal graceful close GOAWAY
+            // 0x1    PROTOCOL_ERROR        Protocol error at frame level
+            // 0x2    INTERNAL_ERROR        Internal error
+            // 0x3    FLOW_CONTROL_ERROR    Flow control error
+            // 0x7    REFUSED_STREAM        Frame rejected before processing
+            // 0x8    CANCEL                Stream cancelled by application
+            // 0xB    STREAM_CLOSED         Reception of frame already closed
+            // ---
+            // Correspond to 'nghttp2_error_code' enum type within 'https://nghttp2.org/documentation/nghttp2.h.html'
+            self->res_.cancel(self->status_code_); // this will be passed to on_close() as error_code
+        }
+        else {
+            self->res_.write_head(self->status_code_, self->response_headers_);
+            self->res_.end(self->response_body_);
+        }
     });
 }
 
-void Stream::close() {
-    std::lock_guard<std::mutex> guard(mutex_);
-    closed_ = true;
-
+void Stream::updateMetrics(const char *resultCodeLabel) {
     if (!server_->metrics_) return;
 
     // histograms
@@ -205,7 +218,7 @@ void Stream::close() {
         ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
     );
 
-    auto& gauge = server_->responses_delay_seconds_gauge_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    auto& gauge = server_->responses_delay_seconds_gauge_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}});
     gauge.Set(durationSeconds);
 
     std::size_t requestBodySize = request_body_.size();
@@ -213,24 +226,34 @@ void Stream::close() {
 
     auto& gauge2 = server_->received_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}});
     gauge2.Set(requestBodySize);
-    auto& gauge3 = server_->sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    auto& gauge3 = server_->sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}});
     gauge3.Set(responseBodySize);
 
-    auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
+    auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
     histogram.Observe(durationSeconds);
     auto& histogram2 = server_->received_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}}, server_->message_size_bytes_histogram_bucket_boundaries_);
     histogram2.Observe(durationSeconds);
-    auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}}, server_->message_size_bytes_histogram_bucket_boundaries_);
+    auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}}, server_->message_size_bytes_histogram_bucket_boundaries_);
     histogram3.Observe(durationSeconds);
 
     // counters
-    auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {"status_code", std::to_string(status_code_)}});
+    auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}});
     counter.Increment();
 }
 
-void Stream::error() {
+void Stream::error(uint32_t error_code) {
     std::lock_guard<std::mutex> guard(mutex_);
     error_ = true;
+
+    status_code_ = error_code;
+    updateMetrics("rst_stream_goaway_error_code");
+}
+
+void Stream::close() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    closed_ = true;
+
+    updateMetrics("status_code");
 }
 
 }

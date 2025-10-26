@@ -87,7 +87,7 @@ class Stream : public ert::queuedispatcher::StreamIf
     bool error_; // error detected on stream transport
 
     // Response (members calculated at process()):
-    unsigned int status_code_{};
+    unsigned int status_code_{}; // not very smart, but we also use this to transport RST_STREAM & GOAWAY error codes, up to '0xd' < HTTP2 Status Codes Base (100)
     nghttp2::asio_http2::header_map response_headers_{};
     std::string response_body_{};
     std::shared_ptr<boost::asio::steady_timer> timer_{};
@@ -129,10 +129,11 @@ public:
     // Completes the nghttp2 transaction (res.end()) with the values calculated at process()
     void commit();
 
-    // res.on_close()
+    void updateMetrics(const char *resultCodeLabel);
+
     void close();
 
-    void error();
+    void error(uint32_t error_code);
 };
 
 }

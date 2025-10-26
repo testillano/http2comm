@@ -206,7 +206,7 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
         res.on_close([stream](uint32_t error_code)
         {
             if (error_code != 0) {
-                stream->error();
+                stream->error(error_code);
                 ert::tracing::Logger::error(ert::tracing::Logger::asString("Client connection error: %d", error_code), ERT_FILE_LOCATION);
             }
             else {
