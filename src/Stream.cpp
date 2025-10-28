@@ -118,47 +118,62 @@ void Stream::reception(bool congestion)
     }
 
     // Optional reponse delay
-    if (responseDelayMs != 0) { // optional delay:
+    bool ioContextWarning = false;
+    if (responseDelayMs != 0) { // provision delay
         if (server_->getTimersIoContext()) {
-            auto responseDelayUs = 1000*responseDelayMs;
-            LOGDEBUG(
-                std::string msg = ert::tracing::Logger::asString("Planned delay before response: %d us", responseDelayUs);
-                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
-            );
-
-            // Final timestamp for delay correction: this correction could be noticeable with huge transformations, but this is not usual.
-            auto nowUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            auto delayUsCorrection = (nowUs - reception_timestamp_us_.count());
-            responseDelayUs -= delayUsCorrection;
-            LOGDEBUG(
-            if (delayUsCorrection > 0) {
-            std::string msg = ert::tracing::Logger::asString("Corrected delay: %d us (processing lapse was: %d us)", responseDelayUs, delayUsCorrection);
-                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
-            }
-            );
-
-            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), std::chrono::microseconds(responseDelayUs));
+            //if (!server_->getTimersIoContext()->stopped()) {
+            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), std::chrono::milliseconds(responseDelayMs));
             need_timer_ = true;
+            LOGDEBUG(
+                std::string msg = ert::tracing::Logger::asString("Server response delay scheduled (%d ms)", responseDelayMs);
+                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+            );
+            //}
         }
         else {
-            LOGWARNING(ert::tracing::Logger::warning("You must provide an 'io context for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
+            ioContextWarning = true;
         }
     }
+    else if (std::chrono::microseconds delayUs = server_->responseDelayTimer(reception_id_); delayUs > std::chrono::microseconds::zero()) { // reception-id specific delay
+        if (server_->getTimersIoContext()) {
+            //if (!server_->getTimersIoContext()->stopped()) {
+            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), delayUs);
+            need_timer_ = true;
+            LOGDEBUG(
+                std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() scheduled (%lld usecs) for reception identifier %d", delayUs.count(), reception_id_);
+                ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+            );
+            //}
+        }
+        else {
+            ioContextWarning = true;
+        }
+    }
+
+    LOGWARNING(if (ioContextWarning) ert::tracing::Logger::warning("You must provide an 'io context for timers' in order to manage delays in http2 server", ERT_FILE_LOCATION));
 }
 
 void Stream::commit()
 {
     if (need_timer_)
     {
-        /*
-                timer_->async_wait([&] (const boost::system::error_code&) {
-                    delete timer_;
-                    timer_ = nullptr;
-                    commit();
-                });
-        */
-        timer_->async_wait([this] (const boost::system::error_code&) {
-            need_timer_ = false;
+        timer_->async_wait([this] (const boost::system::error_code& ec) {
+
+            if (ec == boost::asio::error::operation_aborted) { // timer was cancelled, we musn't commit
+                return;
+            }
+
+            // Re-scheduling of timers by mean virtual server responseDelayTimer():
+            std::chrono::microseconds delayUs = server_->responseDelayTimer(reception_id_);
+            need_timer_ = (delayUs > std::chrono::microseconds::zero());
+            if (need_timer_) {
+                timer_->expires_after(delayUs);
+                LOGDEBUG(
+                    std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() re-scheduled (%lld usecs) for reception identifier %d", delayUs.count(), reception_id_);
+                    ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
+                );
+            }
+
             commit();
         });
         return;
@@ -254,6 +269,12 @@ void Stream::close() {
     closed_ = true;
 
     updateMetrics("status_code");
+}
+
+void Stream::cancelTimer() {
+    if (timer_) {
+        timer_->cancel();
+    }
 }
 
 }

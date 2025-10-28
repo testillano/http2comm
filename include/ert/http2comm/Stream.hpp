@@ -134,6 +134,8 @@ public:
     void close();
 
     void error(uint32_t error_code);
+
+    void cancelTimer();
 };
 
 }

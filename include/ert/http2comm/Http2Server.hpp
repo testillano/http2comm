@@ -322,6 +322,21 @@ public:
     // Default error handler
     //virtual nghttp2::asio_http2::server::request_cb errorHandler();
 
+    /**
+    * Virtual dynamic response delay timer
+    *
+    * The server could set response dynamic delays which could postpone the stream commit (answer)
+    * until certain condition is fulfilled. This delay is added after the possible response delay
+    * configured on receive(). A typical application could be setting a periodic check of a server
+    * condition for a reception identifier to ensure some kind of synchronous scenario.
+    *
+    * @param receptionId Unique recepcion identifier
+    *
+    * @return microseconds of delay, or zero() when no delay will be planned (default implementation).
+    */
+    virtual std::chrono::microseconds responseDelayTimer(const std::uint64_t &receptionId) {
+        return std::chrono::microseconds::zero();
+    }
 
     /**
     * Server start
