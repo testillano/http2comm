@@ -209,7 +209,6 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
 
             if (error_code != 0) {
                 stream->error(error_code);
-                ert::tracing::Logger::error(ert::tracing::Logger::asString("Client connection error: %d", error_code), ERT_FILE_LOCATION);
             }
             else {
                 stream->close();
@@ -218,6 +217,23 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
     };
 }
 
+// Important: asyncronous mode is not compatible with current handler() (the one configured with server_.handle() call).
+//            That's because io_service will fail on this assertion due to re-entry:
+//            h2agent: asio_server_http2_handler.cc:400: void nghttp2::asio_http2::server::http2_handler::enter_callback(): Assertion `!inside_callback_' failed.
+//            The reason is that our handler calls write_head/end methods, so use io_context. You should have another
+//            handler variant executing stream commit/reception in different thread, far way from io_context. Queue
+//            dispatcher should work, but not (tested). For example, we could call stream->reception_and_commit_async():
+//               void Stream::reception_and_commit_async() {
+//                   auto safe_stream = shared_from_this();
+//                   std::thread([safe_stream] {
+//                       try {
+//                           // Business logic, far away from io_context:
+//                           safe_stream->reception();
+//                           safe_stream->commit();
+//                       } catch (const std::exception& e) {
+//                       }
+//                   }).detach();
+//               }
 int Http2Server::serve(const std::string& bind_address,
                        const std::string& listen_port,
                        const std::string& key,
@@ -278,6 +294,19 @@ int Http2Server::serve(const std::string& bind_address,
         return EXIT_FAILURE;
     }
 
+    if (asynchronous) {
+        worker_threads_.clear();
+        for (auto& io_svc : server_.io_services()) {
+            worker_threads_.emplace_back([io_svc] { // "server_.num_threads()" times (numberThreads)
+                try {
+                    // Blocks until stop():
+                    io_svc->run();
+                } catch (const std::exception& e) {
+                }
+            });
+        }
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -300,9 +329,20 @@ int Http2Server::stop()
 {
     try
     {
-        // stop internal io contexts
-        for (auto &ii: server_.io_services()) if (!ii->stopped()) ii->stop();
         server_.stop();
+
+        // When we had asynchronous mode for serve(), true if we have worker_threads_:
+        if (worker_threads_.size() > 0) { // asynchronous serve
+            for (auto &ii: server_.io_services()) if (!ii->stopped()) ii->stop(); // stop internal io contexts explicitly
+            // join threads (this also isolate possible weak_ptr exception after massive client close connections):
+            for (auto& t : worker_threads_) {
+                if (t.joinable()) {
+                    // avoid std::future::get() nghttp2 bug
+                    t.join();
+                }
+            }
+            worker_threads_.clear();
+        }
     }
     catch (std::exception& e)
     {

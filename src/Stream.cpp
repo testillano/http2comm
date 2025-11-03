@@ -140,7 +140,7 @@ void Stream::reception(bool congestion)
             timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), delayUs);
             need_timer_ = true;
             LOGDEBUG(
-                std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() scheduled (%lld usecs) for reception identifier %d", delayUs.count(), reception_id_);
+                std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() scheduled (%lld usecs) for reception identifier %llu", delayUs.count(), reception_id_);
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             );
             //}
@@ -169,7 +169,7 @@ void Stream::commit()
             if (need_timer_) {
                 timer_->expires_after(delayUs);
                 LOGDEBUG(
-                    std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() re-scheduled (%lld usecs) for reception identifier %d", delayUs.count(), reception_id_);
+                    std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() re-scheduled (%lld usecs) for reception identifier %llu", delayUs.count(), reception_id_);
                     ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
                 );
             }
@@ -262,6 +262,8 @@ void Stream::error(uint32_t error_code) {
 
     status_code_ = error_code;
     updateMetrics("rst_stream_goaway_error_code");
+
+    ert::tracing::Logger::error(ert::tracing::Logger::asString("Stream connection error (%d) for reception identifier %llu", error_code, reception_id_), ERT_FILE_LOCATION);
 }
 
 void Stream::close() {
