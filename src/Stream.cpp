@@ -262,8 +262,6 @@ void Stream::error(uint32_t error_code) {
 
     status_code_ = error_code;
     updateMetrics("rst_stream_goaway_error_code");
-
-    ert::tracing::Logger::error(ert::tracing::Logger::asString("Stream connection error (%d) for reception identifier %llu", error_code, reception_id_), ERT_FILE_LOCATION);
 }
 
 void Stream::close() {

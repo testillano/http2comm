@@ -324,8 +324,15 @@ public:
                               const std::string &location = "",
                               const std::vector<std::string>& allowedMethods = std::vector<std::string>());
 
-    // Default error handler
-    //virtual nghttp2::asio_http2::server::request_cb errorHandler();
+    /**
+    * Virtual event for stream close under error condition (not normal close)
+    *
+    * @param errorCode Http2 standard errors: normal goaway (0x00), refused stream (0x07), cancel (0x08), etc., check on http://datatracker.ietf.org/doc/html/rfc7540#section-7
+    * @param name Server name
+    * @param receptionId Unique recepcion identifier
+    * @param uriPath Original request path
+    */
+    virtual void streamClosed(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req);
 
     /**
     * Virtual dynamic response delay timer

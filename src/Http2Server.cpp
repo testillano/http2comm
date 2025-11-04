@@ -165,6 +165,11 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
     headers = hdrs.getHeaders();
 }
 
+void Http2Server::streamClosed(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req) {
+    std::string msg = ert::tracing::Logger::asString("Error code: %d | Server: %s | Reception id: %llu | Request Method: %s | Request Uri: %s", errorCode, serverName.c_str(), receptionId, req.method().c_str(), req.uri().path.c_str());
+    ert::tracing::Logger::error(msg, ERT_FILE_LOCATION);
+}
+
 nghttp2::asio_http2::server::request_cb Http2Server::handler()
 {
     return [&](const nghttp2::asio_http2::server::request & req,
@@ -203,16 +208,18 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
             }
         });
 
-        res.on_close([stream](uint32_t error_code)
+        res.on_close([stream, this](uint32_t error_code)
         {
             stream->cancelTimer();
 
             if (error_code != 0) {
                 stream->error(error_code);
+                streamClosed(error_code, name_, reception_id_, stream->getReq());
             }
             else {
                 stream->close();
             }
+
         });
     };
 }
