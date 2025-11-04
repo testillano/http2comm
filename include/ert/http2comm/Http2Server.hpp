@@ -40,8 +40,6 @@ SOFTWARE.
 #pragma once
 
 #include <string>
-#include <vector>
-#include <thread>
 #include <memory>
 #include <chrono>
 #include <atomic>
@@ -75,9 +73,6 @@ class Http2Server
     int queue_dispatcher_max_size_{};
 
     nghttp2::asio_http2::server::request_cb handler();
-
-    // asynchronous mode for serve()
-    std::vector<std::thread> worker_threads_{};
 
     // metrics:
     ert::metrics::Metrics *metrics_{};
