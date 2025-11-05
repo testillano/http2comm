@@ -327,7 +327,7 @@ public:
     * @param receptionId Unique recepcion identifier
     * @param uriPath Original request path
     */
-    virtual void streamClosed(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req);
+    virtual void streamError(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req);
 
     /**
     * Virtual dynamic response delay in milliseconds
