@@ -134,13 +134,13 @@ void Stream::reception(bool congestion)
             ioContextWarning = true;
         }
     }
-    else if (std::chrono::microseconds delayUs = server_->responseDelayTimer(reception_id_); delayUs > std::chrono::microseconds::zero()) { // reception-id specific delay
+    else if (std::chrono::milliseconds delayMs = server_->responseDelayMs(reception_id_); delayMs > std::chrono::milliseconds::zero()) { // reception-id specific delay
         if (server_->getTimersIoContext()) {
             //if (!server_->getTimersIoContext()->stopped()) {
-            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), delayUs);
+            timer_ = std::make_shared<boost::asio::steady_timer>(*(server_->getTimersIoContext()), delayMs);
             need_timer_ = true;
             LOGDEBUG(
-                std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() scheduled (%lld usecs) for reception identifier %llu", delayUs.count(), reception_id_);
+                std::string msg = ert::tracing::Logger::asString("Server responseDelayMs() scheduled (%d ms) for reception identifier %llu", delayMs.count(), reception_id_);
                 ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
             );
             //}
@@ -163,13 +163,13 @@ void Stream::commit()
                 return;
             }
 
-            // Re-scheduling of timers by mean virtual server responseDelayTimer():
-            std::chrono::microseconds delayUs = server_->responseDelayTimer(reception_id_);
-            need_timer_ = (delayUs > std::chrono::microseconds::zero());
+            // Re-scheduling of timers by mean virtual server responseDelayMs():
+            std::chrono::milliseconds delayMs = server_->responseDelayMs(reception_id_);
+            need_timer_ = (delayMs > std::chrono::milliseconds::zero());
             if (need_timer_) {
-                timer_->expires_after(delayUs);
+                timer_->expires_after(delayMs);
                 LOGDEBUG(
-                    std::string msg = ert::tracing::Logger::asString("Server responseDelayTimer() re-scheduled (%lld usecs) for reception identifier %llu", delayUs.count(), reception_id_);
+                    std::string msg = ert::tracing::Logger::asString("Server responseDelayMs() re-scheduled (%d ms) for reception identifier %llu", delayMs.count(), reception_id_);
                     ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
                 );
             }

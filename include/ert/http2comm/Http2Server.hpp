@@ -330,7 +330,7 @@ public:
     virtual void streamClosed(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req);
 
     /**
-    * Virtual dynamic response delay timer
+    * Virtual dynamic response delay in milliseconds
     *
     * The server could set response dynamic delays which could postpone the stream commit (answer)
     * until certain condition is fulfilled. This delay is added after the possible response delay
@@ -339,10 +339,10 @@ public:
     *
     * @param receptionId Unique recepcion identifier
     *
-    * @return microseconds of delay, or zero() when no delay will be planned (default implementation).
+    * @return milliseconds of delay, or zero() when no delay will be planned (default implementation).
     */
-    virtual std::chrono::microseconds responseDelayTimer(const std::uint64_t &receptionId) {
-        return std::chrono::microseconds::zero();
+    virtual std::chrono::milliseconds responseDelayMs(const std::uint64_t &receptionId) {
+        return std::chrono::milliseconds::zero();
     }
 
     /**
