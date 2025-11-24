@@ -247,9 +247,9 @@ void Stream::updateMetrics(const char *resultCodeLabel) {
     auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
     histogram.Observe(durationSeconds);
     auto& histogram2 = server_->received_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}}, server_->message_size_bytes_histogram_bucket_boundaries_);
-    histogram2.Observe(durationSeconds);
+    histogram2.Observe(requestBodySize);
     auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}}, server_->message_size_bytes_histogram_bucket_boundaries_);
-    histogram3.Observe(durationSeconds);
+    histogram3.Observe(responseBodySize);
 
     // counters
     auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, std::to_string(status_code_)}});
