@@ -39,6 +39,7 @@ SOFTWARE.
 
 #include <ert/http2comm/Http2Headers.hpp>
 #include <iostream>
+#include <sstream>
 
 
 namespace ert
@@ -47,17 +48,13 @@ namespace http2comm
 {
 
 std::string headersAsString(const nghttp2::asio_http2::header_map &headers) {
-    std::string result = "";
+    std::ostringstream oss;
 
     for(auto it = headers.begin(); it != headers.end(); it ++) {
-        result += "[";
-        result += it->first;
-        result += ": ";
-        result += it->second.value;
-        result += "]";
+        oss << "[" << it->first << ": " << it->second.value << "]";
     }
 
-    return result;
+    return oss.str();
 }
 
 

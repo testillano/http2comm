@@ -69,7 +69,7 @@ class Http2Server
     std::string api_name_{};
     std::string api_version_{};
     boost::asio::io_context *timers_io_context_;
-    ert::queuedispatcher::QueueDispatcher *queue_dispatcher_;
+    std::unique_ptr<ert::queuedispatcher::QueueDispatcher> queue_dispatcher_;
     int queue_dispatcher_max_size_{};
 
     nghttp2::asio_http2::server::request_cb handler();

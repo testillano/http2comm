@@ -63,6 +63,9 @@ std::unique_ptr<nghttp2::asio_http2::client::session> Http2Connection::createSes
         boost::asio::ssl::context tls_ctx(boost::asio::ssl::context::sslv23);
         tls_ctx.set_default_verify_paths();
         nghttp2::asio_http2::client::configure_tls_context(ec, tls_ctx);
+        if (ec) {
+            return nullptr;
+        }
         return std::make_unique<nghttp2::asio_http2::client::session>(ioContext, tls_ctx, host, port);
     }
 
@@ -94,6 +97,9 @@ Http2Connection::Http2Connection(const std::string& host,
     secure_(secure),
     session_(createSession(io_context_, host, port, secure))
 {
+    if (!session_) {
+        throw std::runtime_error("Failed to create HTTP/2 session");
+    }
     configureSession();
     thread_ = std::thread([&] { io_context_.run(); }); // 1 thread
 }
@@ -151,7 +157,10 @@ void Http2Connection::closeImpl()
 
 void Http2Connection::close()
 {
-    session_->shutdown();
+    if (isConnected())
+    {
+        session_->shutdown();
+    }
     notifyClose();
 }
 
@@ -192,18 +201,19 @@ bool Http2Connection::isConnected() const {
 
 bool Http2Connection::waitToBeConnected()
 {
+    static constexpr int DEFAULT_CONNECTION_TIMEOUT_MS = 2000;
+
     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString("waitToBeConnected() to '%s'", asString().c_str()),  ERT_FILE_LOCATION));
 
     std::unique_lock<std::mutex> lock(mutex_);
-    status_change_cond_var_.wait_for(lock, std::chrono::duration<int, std::milli>(2000), [&]
+    status_change_cond_var_.wait_for(lock, std::chrono::duration<int, std::milli>(DEFAULT_CONNECTION_TIMEOUT_MS), [&]
     {
         return (status_ != Http2Connection::Status::NOT_OPEN);
     });
     return isConnected();
 }
 
-bool Http2Connection::waitToBeDisconnected(const
-        std::chrono::duration<int, std::milli>& time)
+bool Http2Connection::waitToBeDisconnected(const std::chrono::duration<int, std::milli>& time)
 {
     LOGDEBUG(ert::tracing::Logger::debug(ert::tracing::Logger::asString("waitToBeDisconnected() from '%s'", asString().c_str()),  ERT_FILE_LOCATION));
 
@@ -214,8 +224,7 @@ bool Http2Connection::waitToBeDisconnected(const
     });
 }
 
-void Http2Connection::onClose(connection_callback
-                              connection_closed_callback)
+void Http2Connection::onClose(connection_callback connection_closed_callback)
 {
     connection_closed_callback_ = connection_closed_callback;
 }
@@ -229,7 +238,8 @@ std::string Http2Connection::asString() const {
     result += " | port: ";
     result += port_;
     result += " | status: ";
-    result += ::status_to_str[getStatus()];
+    auto it = ::status_to_str.find(getStatus());
+    result += (it != ::status_to_str.end()) ? it->second : "UNKNOWN";
 
     return result;
 }

@@ -38,10 +38,9 @@ SOFTWARE.
 */
 
 #include <string>
-#include <thread>
 #include <sstream>
-#include <iterator>
 #include <iostream>
+#include <memory>
 #include <boost/exception/diagnostic_information.hpp>
 
 #include <ert/tracing/Logger.hpp>
@@ -52,92 +51,95 @@ SOFTWARE.
 #include <ert/http2comm/Http.hpp>
 #include <ert/http2comm/Http2Headers.hpp>
 
-
 namespace ert
 {
 namespace http2comm
 {
 
-Http2Server::Http2Server(const std::string& name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_context *timersIoContext, int queueDispatcherMaxSize):
-    name_(name), timers_io_context_(timersIoContext), reception_id_(0), maximum_request_body_size_(0), queue_dispatcher_max_size_(queueDispatcherMaxSize) {
+Http2Server::Http2Server(const std::string &name, size_t workerThreads, size_t maxWorkerThreads, boost::asio::io_context *timersIoContext, int queueDispatcherMaxSize) : name_(name), timers_io_context_(timersIoContext), reception_id_(0), maximum_request_body_size_(0), queue_dispatcher_max_size_(queueDispatcherMaxSize >= -1 ? queueDispatcherMaxSize : -1)
+{
 
-    queue_dispatcher_ = (workerThreads > 1) ? new ert::queuedispatcher::QueueDispatcher(name + "_queueDispatcher", workerThreads, maxWorkerThreads) : nullptr;
+    queue_dispatcher_ = (workerThreads > 1) ? std::make_unique<ert::queuedispatcher::QueueDispatcher>(name + "_queueDispatcher", workerThreads, maxWorkerThreads) : nullptr;
 }
 
-int Http2Server::getQueueDispatcherBusyThreads() const {
-    return (queue_dispatcher_ ? queue_dispatcher_->getBusyThreads():0);
+int Http2Server::getQueueDispatcherBusyThreads() const
+{
+    return (queue_dispatcher_ ? queue_dispatcher_->getBusyThreads() : 0);
 }
 
-int Http2Server::getQueueDispatcherThreads() const {
-    return (queue_dispatcher_ ? queue_dispatcher_->getThreads():0);
+int Http2Server::getQueueDispatcherThreads() const
+{
+    return (queue_dispatcher_ ? queue_dispatcher_->getThreads() : 0);
 }
 
-int Http2Server::getQueueDispatcherSize() const {
-    return (queue_dispatcher_ ? queue_dispatcher_->getSize():0);
+int Http2Server::getQueueDispatcherSize() const
+{
+    return (queue_dispatcher_ ? queue_dispatcher_->getSize() : 0);
 }
 
-int Http2Server::getQueueDispatcherMaxSize() const {
+int Http2Server::getQueueDispatcherMaxSize() const
+{
     return queue_dispatcher_max_size_;
 }
 
 void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
                                 const ert::metrics::bucket_boundaries_t &responseDelaySecondsHistogramBucketBoundaries,
-                                const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries, const std::string &source) {
+                                const ert::metrics::bucket_boundaries_t &messageSizeBytesHistogramBucketBoundaries, const std::string &source)
+{
 
     metrics_ = metrics;
 
-    if (metrics_) {
-        ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_:source)}};
+    if (metrics_)
+    {
+        ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_ : source)}};
 
-        observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_accepted_counter"), std::string("Requests accepted observed counter in ") + name_, familyLabels));
-        observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_requests_errored_counter"), std::string("Requests errored observed counter in ") + name_, familyLabels));
-        observed_responses_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + std::string("_observed_responses_counter"), std::string("Responses observed counter in ") + name_, familyLabels));
+        observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + "_observed_requests_accepted_counter", "Requests accepted observed counter in " + name_, familyLabels));
+        observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + "_observed_requests_errored_counter", "Requests errored observed counter in " + name_, familyLabels));
+        observed_responses_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + "_observed_responses_counter", "Responses observed counter in " + name_, familyLabels));
 
-        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_responses_delay_seconds_gauge"), std::string("Message responses delay gauge (seconds) in ") + name_, familyLabels));
-        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_received_messages_size_bytes_gauge"), std::string("Received messages sizes gauge (bytes) in ") + name_, familyLabels));
-        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + std::string("_sent_messages_size_bytes_gauge"), std::string("Sent messages sizes gauge (bytes) in ") + name_, familyLabels));
+        responses_delay_seconds_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + "_responses_delay_seconds_gauge", "Message responses delay gauge (seconds) in " + name_, familyLabels));
+        received_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + "_received_messages_size_bytes_gauge", "Received messages sizes gauge (bytes) in " + name_, familyLabels));
+        sent_messages_size_bytes_gauge_family_ptr_ = &(metrics_->addGaugeFamily(name_ + "_sent_messages_size_bytes_gauge", "Sent messages sizes gauge (bytes) in " + name_, familyLabels));
 
-        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_responses_delay_seconds"), std::string("Message responses delay (seconds) in ") + name_, familyLabels));
-        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_received_messages_size_bytes"), std::string("Received messages sizes (bytes) in ") + name_, familyLabels));
-        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + std::string("_sent_messages_size_bytes"), std::string("Sent messages sizes (bytes) in ") + name_, familyLabels));
+        responses_delay_seconds_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + "_responses_delay_seconds", "Message responses delay (seconds) in " + name_, familyLabels));
+        received_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + "_received_messages_size_bytes", "Received messages sizes (bytes) in " + name_, familyLabels));
+        sent_messages_size_bytes_histogram_family_ptr_ = &(metrics_->addHistogramFamily(name_ + "_sent_messages_size_bytes", "Sent messages sizes (bytes) in " + name_, familyLabels));
 
         response_delay_seconds_histogram_bucket_boundaries_ = responseDelaySecondsHistogramBucketBoundaries;
         message_size_bytes_histogram_bucket_boundaries_ = messageSizeBytesHistogramBucketBoundaries;
     }
 }
 
-Http2Server::~Http2Server() {
-    delete queue_dispatcher_;
-}
+Http2Server::~Http2Server() = default;
 
 std::string Http2Server::getApiPath() const
 {
-    std::string result{};
-    if (api_name_.empty()) return result;
+    if (api_name_.empty())
+        return {};
 
-    result += "/";
-    result += api_name_;
+    std::ostringstream oss;
+    oss << "/" << api_name_;
 
-    if (api_version_.empty()) return result;
+    if (!api_version_.empty()) {
+        oss << "/" << api_version_;
+    }
 
-    result += "/";
-    result += api_version_;
-
-    return result;
+    return oss.str();
 }
 
-void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
+void Http2Server::receiveError(const nghttp2::asio_http2::server::request &req,
                                const std::string &requestBody,
-                               unsigned int& statusCode,
-                               nghttp2::asio_http2::header_map& headers,
-                               std::string& responseBody,
-                               const std::pair<int, const std::string>& error,
+                               unsigned int &statusCode,
+                               nghttp2::asio_http2::header_map &headers,
+                               std::string &responseBody,
+                               const std::pair<int, const std::string> &error,
                                const std::string &location,
-                               const std::vector<std::string>& allowedMethods)
+                               const std::vector<std::string> &allowedMethods)
 {
     // metrics
-    if (metrics_) {
-        auto& counter = observed_requests_errored_counter_family_ptr_->Add({{"method", req.method()}});
+    if (metrics_)
+    {
+        auto &counter = observed_requests_errored_counter_family_ptr_->Add({{"method", req.method()}});
         counter.Increment();
     }
 
@@ -145,15 +147,52 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
     responseBody = "{}";
 
     std::string s_errorCause = "<none>";
-    if (error.second != "")
+    if (!error.second.empty())
     {
         s_errorCause = error.second;
-        responseBody = "{\"cause\":\"" + (s_errorCause + "\"}");
+        // Escape JSON special characters to prevent injection
+        std::string escaped_cause;
+        for (char c : s_errorCause) {
+            switch (c) {
+            case '"':
+                escaped_cause += "\\\"";
+                break;
+            case '\\':
+                escaped_cause += "\\\\";
+                break;
+            case '\n':
+                escaped_cause += "\\n";
+                break;
+            case '\r':
+                escaped_cause += "\\r";
+                break;
+            case '\t':
+                escaped_cause += "\\t";
+                break;
+            case '\b':
+                escaped_cause += "\\b";
+                break;
+            case '\f':
+                escaped_cause += "\\f";
+                break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    escaped_cause += "\\u00";
+                    escaped_cause += "0123456789abcdef"[(c >> 4) & 0xF];
+                    escaped_cause += "0123456789abcdef"[c & 0xF];
+                } else {
+                    escaped_cause += c;
+                }
+                break;
+            }
+        }
+        responseBody = "{\"cause\":\"" + escaped_cause + "\"}";
     }
 
     ert::tracing::Logger::error(ert::tracing::Logger::asString(
                                     "UNSUCCESSFUL REQUEST: path %s, code %d, error cause %s",
-                                    req.uri().path.c_str(), statusCode, s_errorCause.c_str()), ERT_FILE_LOCATION);
+                                    req.uri().path.c_str(), statusCode, s_errorCause.c_str()),
+                                ERT_FILE_LOCATION);
 
     // Headers:
     Http2Headers hdrs;
@@ -165,18 +204,19 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request& req,
     headers = hdrs.getHeaders();
 }
 
-void Http2Server::streamError(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req) {
+void Http2Server::streamError(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req)
+{
     std::string msg = ert::tracing::Logger::asString("Error code: %d | Server: %s | Reception id: %llu | Request Method: %s | Request Uri: %s", errorCode, serverName.c_str(), receptionId, req.method().c_str(), req.uri().path.c_str());
     ert::tracing::Logger::error(msg, ERT_FILE_LOCATION);
 }
 
 nghttp2::asio_http2::server::request_cb Http2Server::handler()
 {
-    return [&](const nghttp2::asio_http2::server::request & req,
-               const nghttp2::asio_http2::server::response & res)
+    return [&](const nghttp2::asio_http2::server::request &req,
+               const nghttp2::asio_http2::server::response &res)
     {
         auto stream = std::make_shared<Stream>(req, res, this);
-        req.on_data([stream, this](const uint8_t* data, std::size_t len)
+        req.on_data([stream, this](const uint8_t *data, std::size_t len)
         {
             if (len > 0) // https://stackoverflow.com/a/72925875/2576671
             {
@@ -212,22 +252,23 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
         {
             stream->cancelTimer();
 
-            if (error_code != 0) {
+            if (error_code != 0)
+            {
                 stream->error(error_code);
                 streamError(error_code, name_, reception_id_, stream->getReq()); // virtual
             }
-            else {
+            else
+            {
                 stream->close();
             }
-
         });
     };
 }
 
-int Http2Server::serve(const std::string& bind_address,
-                       const std::string& listen_port,
-                       const std::string& key,
-                       const std::string& cert,
+int Http2Server::serve(const std::string &bind_address,
+                       const std::string &listen_port,
+                       const std::string &key,
+                       const std::string &cert,
                        int numberThreads,
                        bool asynchronous,
                        const boost::posix_time::time_duration &readKeepAlive)
@@ -242,11 +283,14 @@ int Http2Server::serve(const std::string& bind_address,
 
     if (secure)
     {
-        try {
+        try
+        {
             boost::asio::ssl::context tls(boost::asio::ssl::context::sslv23);
 
-            if (!server_key_password_.empty()) {
-                tls.set_password_callback ([this](std::size_t, boost::asio::ssl::context_base::password_purpose) {
+            if (!server_key_password_.empty())
+            {
+                tls.set_password_callback([this](std::size_t, boost::asio::ssl::context_base::password_purpose)
+                {
                     return server_key_password_;
                 });
             }
@@ -256,18 +300,22 @@ int Http2Server::serve(const std::string& bind_address,
             nghttp2::asio_http2::server::configure_tls_context_easy(ec, tls);
             server_.listen_and_serve(ec, tls, bind_address, listen_port, asynchronous);
         }
-        catch (const boost::exception& e)
+        catch (const boost::exception &e)
         {
-            std::cerr << boost::diagnostic_information(e) << '\n';
+            std::string error_msg = "Boost exception in serve(): " + boost::diagnostic_information(e);
+            ert::tracing::Logger::error(error_msg, ERT_FILE_LOCATION);
+            std::cerr << error_msg << '\n';
             stop();
             return EXIT_FAILURE;
         }
-        catch (...) {
-            std::cerr << "Server initialization failure in " << name_ << '\n';
+        catch (...)
+        {
+            std::string error_msg = "Unknown exception during server initialization in " + name_;
+            ert::tracing::Logger::error(error_msg, ERT_FILE_LOCATION);
+            std::cerr << error_msg << '\n';
             stop();
             return EXIT_FAILURE;
         }
-
     }
     else
     {
@@ -277,9 +325,8 @@ int Http2Server::serve(const std::string& bind_address,
     if (ec)
     {
         std::stringstream ss;
-        ss << "Initialization error in " << name_ << " (" << bind_address << ":" <<
-           listen_port << "): " << ec.message();
-        ert::tracing::Logger::error(ss.str().c_str(), ERT_FILE_LOCATION);
+        ss << "Initialization error in " << name_ << " (" << bind_address << ":" << listen_port << "): " << ec.message();
+        ert::tracing::Logger::error(ss.str(), ERT_FILE_LOCATION);
         std::cerr << ss.str() << '\n';
         return EXIT_FAILURE;
     }
@@ -293,9 +340,14 @@ int Http2Server::join()
     {
         server_.join();
     }
-    catch (std::exception& e)
+    catch (std::exception &e)
     {
         ert::tracing::Logger::error(e.what(), ERT_FILE_LOCATION);
+        return EXIT_FAILURE;
+    }
+    catch (...)
+    {
+        ert::tracing::Logger::error("Unknown exception in join()", ERT_FILE_LOCATION);
         return EXIT_FAILURE;
     }
 
@@ -307,12 +359,19 @@ int Http2Server::stop()
     try
     {
         // stop internal io contexts
-        for (auto &ii: server_.io_services()) if (!ii->stopped()) ii->stop();
+        for (auto &ii : server_.io_services())
+            if (!ii->stopped())
+                ii->stop();
         server_.stop();
     }
-    catch (std::exception& e)
+    catch (std::exception &e)
     {
         ert::tracing::Logger::error(e.what(), ERT_FILE_LOCATION);
+        return EXIT_FAILURE;
+    }
+    catch (...)
+    {
+        ert::tracing::Logger::error("Unknown exception in stop()", ERT_FILE_LOCATION);
         return EXIT_FAILURE;
     }
 

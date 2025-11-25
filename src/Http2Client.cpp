@@ -173,7 +173,7 @@ void Http2Client::async_send(
         auto& counter = observed_requests_sents_counter_family_ptr_->Add({{"method", method}});
         counter.Increment();
 
-        std::size_t requestBodySize = (noBodyMethod ? 0:body.size());
+        std::size_t requestBodySize = (noBodyMethod ? 0 : body.size());
         auto& gauge = sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", method}});
         gauge.Set(requestBodySize);
         auto& histogram = sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", method}}, message_size_bytes_histogram_bucket_boundaries_);

@@ -40,19 +40,18 @@ SOFTWARE.
 
 #include <string>
 #include <regex>
+#include <cctype>
 //#include <iomanip>
-//#include <cctype>
 
 
 #include <ert/http2comm/URLFunctions.hpp>
-
-
-const char UPPER_XDIGITS[] = "0123456789ABCDEF";
 
 namespace ert
 {
 namespace http2comm
 {
+
+const char UPPER_XDIGITS[] = "0123456789ABCDEF";
 std::string URLFunctions::encode(const std::string& decodedUrl)
 {
     std::string result;
@@ -82,12 +81,16 @@ std::string URLFunctions::decode(const std::string& encodedUrl)
     {
         auto ch = encodedUrl[i];
 
-        if (ch == '%' && (i + 2) < encodedUrl.size())
+        if (ch == '%' && (i + 2) <= encodedUrl.size())
         {
             auto hex = encodedUrl.substr(i + 1, 2);
-            auto dec = static_cast<char>(std::strtol(hex.c_str(), nullptr, 16));
-            result.push_back(dec);
-            i += 2;
+            if (std::isxdigit(hex[0]) && std::isxdigit(hex[1])) {
+                auto dec = static_cast<char>(std::strtol(hex.c_str(), nullptr, 16));
+                result.push_back(dec);
+                i += 2;
+            } else {
+                result.push_back(ch);
+            }
         }
         else if (ch == '+')
         {
@@ -108,12 +111,12 @@ bool URLFunctions::matchPrefix(const std::string& urlPath,
     // Normalize urlPath (add slashes at both sides):
     std::string pathNormalized = urlPath;
 
-    if (urlPath.front() != '/')
+    if (!urlPath.empty() && urlPath.front() != '/')
     {
         pathNormalized.insert(pathNormalized.begin(), '/');
     }
 
-    if (urlPath.back() != '/')
+    if (!urlPath.empty() && urlPath.back() != '/')
     {
         pathNormalized += "/";
     }
@@ -121,12 +124,12 @@ bool URLFunctions::matchPrefix(const std::string& urlPath,
     // Normalize pathPrefix (add slashes at both sides):
     std::string prefixNormalized = pathPrefix;
 
-    if (pathPrefix.front() != '/')
+    if (!pathPrefix.empty() && pathPrefix.front() != '/')
     {
         prefixNormalized.insert(prefixNormalized.begin(), '/');
     }
 
-    if (pathPrefix.back() != '/')
+    if (!pathPrefix.empty() && pathPrefix.back() != '/')
     {
         prefixNormalized += "/";
     }

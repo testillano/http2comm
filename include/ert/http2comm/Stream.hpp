@@ -94,7 +94,7 @@ class Stream : public ert::queuedispatcher::StreamIf
     bool need_timer_{};
 
     // For metrics:
-    std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microsecods
+    std::chrono::microseconds reception_timestamp_us_{}; // timestamp in microseconds
 
     // Server sequence id passed to this stream:
     std::uint64_t reception_id_{};

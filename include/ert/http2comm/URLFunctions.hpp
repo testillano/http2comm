@@ -60,7 +60,7 @@ public:
     /**
      * Percent-decoder for URL provided.
      *
-     * @param encodedUrl URL to be encoded.
+     * @param encodedUrl URL to be decoded.
      */
     static std::string decode(const std::string& encodedUrl);
 
