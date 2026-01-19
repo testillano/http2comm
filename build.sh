@@ -8,12 +8,12 @@ base_os__dflt=ubuntu
 base_tag__dflt=latest
 make_procs__dflt=$(grep processor /proc/cpuinfo -c)
 build_type__dflt=Release
-ert_logger_ver__dflt=v1.1.0
-ert_queuedispatcher_ver__dflt=v1.0.3
+ert_logger_ver__dflt=v1.1.1
+ert_queuedispatcher_ver__dflt=v1.0.4
 jupp0r_prometheuscpp_ver__dflt=v0.13.0
 # 3rd party used by prometheus:
 civetweb_civetweb_ver__dflt=v1.14
-ert_metrics_ver__dflt=v1.1.0
+ert_metrics_ver__dflt=v1.1.1
 registry=ghcr.io/testillano
 
 #############

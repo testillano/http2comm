@@ -227,16 +227,16 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
                     stream->appendData(data, len);
 
                     // Update maximum request body size registered
-                    //if (len > maximum_request_body_size_.load()) { // this allows traffic profile learning
-                    if (preReserveRequestBody() && (len > maximum_request_body_size_.load())) {
-                        maximum_request_body_size_.store(len);
+                    if (preReserveRequestBody()) {
+                        std::size_t current = maximum_request_body_size_.load();
+                        while (len > current && !maximum_request_body_size_.compare_exchange_weak(current, len));
                     }
                 }
             }
             else
             {
-                reception_id_++;
-                stream->setReceptionId(reception_id_.load());
+                std::uint64_t receptionId = reception_id_.fetch_add(1) + 1;
+                stream->setReceptionId(receptionId);
 
                 if (queue_dispatcher_) {
                     queue_dispatcher_->dispatch(stream);

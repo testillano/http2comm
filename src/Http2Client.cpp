@@ -124,14 +124,13 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
 
 void Http2Client::reconnect()
 {
-    if (!mutex_.try_lock())
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_, std::try_to_lock);
+    if (!lock.owns_lock())
     {
         return;
     }
 
     connection_->reconnect();
-
-    mutex_.unlock();
 }
 
 void Http2Client::async_send(
