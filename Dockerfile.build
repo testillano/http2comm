@@ -17,17 +17,21 @@ ARG ert_metrics_ver=v1.1.1
 ARG base_os=ubuntu
 RUN if [ "${base_os}" = "alpine" ] ; then apk update && apk add doxygen graphviz && rm -rf /var/cache/apk/* ; elif [ "${base_os}" = "ubuntu" ] ; then apt-get update && apt-get install -y doxygen graphviz && apt-get clean ; fi
 
+# Optimization flags for LTO and native architecture
+ARG OPT_FLAGS="-O3 -march=native -flto=auto"
+ENV CFLAGS="${OPT_FLAGS}" CXXFLAGS="${OPT_FLAGS}" LDFLAGS="-flto=auto"
+
 # ert_logger
 RUN set -x && \
     wget https://github.com/testillano/logger/archive/${ert_logger_ver}.tar.gz && tar xvf ${ert_logger_ver}.tar.gz && cd logger-*/ && \
-    cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
+    cmake -DERT_LOGGER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
 
 # ert_queuedispatcher
 RUN set -x && \
     wget https://github.com/testillano/queuedispatcher/archive/${ert_queuedispatcher_ver}.tar.gz && tar xvf ${ert_queuedispatcher_ver}.tar.gz && cd queuedispatcher-*/ && \
-    cmake -DERT_QUEUEDISPATCHER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
+    cmake -DERT_QUEUEDISPATCHER_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
 
@@ -38,7 +42,7 @@ RUN set -x && \
     tar xvf ${jupp0r_prometheuscpp_ver}.tar.gz && cd prometheus-cpp*/3rdparty && \
     wget https://github.com/civetweb/civetweb/archive/refs/tags/${civetweb_civetweb_ver}.tar.gz && \
     tar xvf ${civetweb_civetweb_ver}.tar.gz && mv civetweb-*/* civetweb && cd .. && \
-    mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=${build_type} -DENABLE_TESTING=OFF .. && \
+    mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=${build_type} -DENABLE_TESTING=OFF -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON .. && \
     make -j${make_procs} && make install && \
     cd ../.. && rm -rf * && \
     set +x
@@ -46,6 +50,6 @@ RUN set -x && \
 # ert_metrics
 RUN set -x && \
     wget https://github.com/testillano/metrics/archive/${ert_metrics_ver}.tar.gz && tar xvf ${ert_metrics_ver}.tar.gz && cd metrics-*/ && \
-    cmake -DERT_METRICS_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} . && make -j${make_procs} && make install && \
+    cmake -DERT_METRICS_BuildExamples=OFF -DCMAKE_BUILD_TYPE=${build_type} -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON . && make -j${make_procs} && make install && \
     cd .. && rm -rf * && \
     set +x
