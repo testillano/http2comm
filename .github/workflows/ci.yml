@@ -109,7 +109,8 @@ jobs:
 
         echo Processed image_tag=$image_tag
 
-        for hub in docker.io ghcr.io
+        #for hub in docker.io ghcr.io
+        for hub in ghcr.io
         do
           for imgbn in http2comm_builder http2comm
           do
