@@ -78,8 +78,7 @@ jobs:
         build-args: base_os=ubuntu
         context: .
         platforms: linux/amd64
-        #push: true
-        load: true
+        push: true
     -
       name: Image digest
       run: echo ${{ steps.docker_build1.outputs.digest }}
@@ -93,7 +92,6 @@ jobs:
         build-args: base_tag=local
         context: .
         platforms: linux/amd64
-        #push: true
         load: true
     -
       name: Image2 digest
