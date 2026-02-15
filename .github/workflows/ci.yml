@@ -114,13 +114,11 @@ jobs:
 
         echo Processed image_tag=$image_tag
 
-        #for hub in docker.io ghcr.io
-        for hub in ghcr.io
-        do
-          for imgbn in http2comm_builder http2comm
-          do
-            echo "Push '${imgbn}' image to '${hub}' hub"
-            docker tag ghcr.io/testillano/${imgbn}:local ${hub}/testillano/${imgbn}:${image_tag}
-            docker push ${hub}/testillano/${imgbn}:${image_tag}
-          done
-        done
+        # Builder already pushed, just re-tag
+        docker pull ghcr.io/testillano/http2comm_builder:local
+        docker tag ghcr.io/testillano/http2comm_builder:local ghcr.io/testillano/http2comm_builder:${image_tag}
+        docker push ghcr.io/testillano/http2comm_builder:${image_tag}
+
+        # Project image from local
+        docker tag ghcr.io/testillano/http2comm:local ghcr.io/testillano/http2comm:${image_tag}
+        docker push ghcr.io/testillano/http2comm:${image_tag}
