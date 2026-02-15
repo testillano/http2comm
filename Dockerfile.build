@@ -17,8 +17,8 @@ ARG ert_metrics_ver=v1.1.1
 ARG base_os=ubuntu
 RUN if [ "${base_os}" = "alpine" ] ; then apk update && apk add doxygen graphviz && rm -rf /var/cache/apk/* ; elif [ "${base_os}" = "ubuntu" ] ; then apt-get update && apt-get install -y doxygen graphviz && apt-get clean ; fi
 
-# Optimization flags for LTO and native architecture
-ARG OPT_FLAGS="-O3 -march=native -flto=auto"
+# Optimization flags for LTO and portable SIMD (x86-64-v3: AVX2, ~2013+)
+ARG OPT_FLAGS="-O3 -march=x86-64-v3 -flto=auto"
 ENV CFLAGS="${OPT_FLAGS}" CXXFLAGS="${OPT_FLAGS}" LDFLAGS="-flto=auto"
 
 # ert_logger
