@@ -124,10 +124,15 @@ void Http2Client::enableMetrics(ert::metrics::Metrics *metrics,
 
 void Http2Client::reconnect()
 {
-    std::unique_lock<std::shared_timed_mutex> lock(mutex_, std::try_to_lock);
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_, std::chrono::milliseconds(2500));
     if (!lock.owns_lock())
     {
         return;
+    }
+
+    if (connection_ && connection_->isConnected())
+    {
+        return; // another thread already reconnected
     }
 
     connection_->reconnect();
@@ -153,15 +158,22 @@ void Http2Client::async_send(
 
         reconnect();
 
-        // metrics
-        if (metrics_) {
-            auto& counter = observed_requests_unsents_counter_family_ptr_->Add({{"method", method}});
-            counter.Increment();
-        }
+        if (!connection_ || !connection_->isConnected())
+        {
+            // metrics
+            if (metrics_) {
+                auto& counter = observed_requests_unsents_counter_family_ptr_->Add({{"method", method}});
+                counter.Increment();
+            }
 
-        // Invoke callback
-        cb(Http2Client::response{"", -1});
-        return;
+            // Invoke callback
+            cb(Http2Client::response{"", -1});
+            return;
+        }
+        // Reconnect succeeded: fall through to send
+        LOGINFORMATIONAL(
+            ert::tracing::Logger::informational("Reconnection succeeded, proceeding with request", ERT_FILE_LOCATION);
+        );
     }
 
     // Ignore Body on GET, DELETE and HEAD:
