@@ -114,6 +114,7 @@ private:
 
     // metrics:
     ert::metrics::Metrics *metrics_{};
+    std::string source_{};
 
     // Create counters families for specific situations, and let dynamic labes for unpredictable (status codes) or small sets (method).
     // We could even make combinations with methods (POST, GET, PUT, DELETE, HEAD) but we would manage 5x4=20 families instead of 4:

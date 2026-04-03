@@ -91,7 +91,13 @@ void Http2Server::enableMetrics(ert::metrics::Metrics *metrics,
 
     if (metrics_)
     {
-        ert::metrics::labels_t familyLabels = {{"source", (source.empty() ? name_ : source)}};
+        source_ = source.empty() ? name_ : source;
+
+        // Family labels are constant labels shared by all metrics in the family.
+        // Use for invariant dimensions like environment (e.g. {{"environment", "production"}}).
+        // Variable dimensions like 'source' must go as instance labels in Add() calls instead,
+        // to allow multiple instances (e.g. server endpoints) to coexist in the same family.
+        ert::metrics::labels_t familyLabels = {};
 
         observed_requests_accepted_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + "_observed_requests_accepted_counter", "Requests accepted observed counter in " + name_, familyLabels));
         observed_requests_errored_counter_family_ptr_ = &(metrics_->addCounterFamily(name_ + "_observed_requests_errored_counter", "Requests errored observed counter in " + name_, familyLabels));
@@ -139,7 +145,7 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request &req,
     // metrics
     if (metrics_)
     {
-        auto &counter = observed_requests_errored_counter_family_ptr_->Add({{"method", req.method()}});
+        auto &counter = observed_requests_errored_counter_family_ptr_->Add({{"source", source_}, {"method", req.method()}});
         counter.Increment();
     }
 

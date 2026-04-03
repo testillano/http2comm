@@ -106,7 +106,7 @@ void Stream::reception(bool congestion)
 
                 // metrics
                 if (server_->metrics_) {
-                    auto& counter = server_->observed_requests_accepted_counter_family_ptr_->Add({{"method", req_.method()}});
+                    auto& counter = server_->observed_requests_accepted_counter_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}});
                     counter.Increment();
                 }
 
@@ -243,26 +243,26 @@ void Stream::updateMetrics(const char *resultCodeLabel) {
         ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
     );
 
-    auto& gauge = server_->responses_delay_seconds_gauge_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
+    auto& gauge = server_->responses_delay_seconds_gauge_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
     gauge.Set(durationSeconds);
 
     std::size_t requestBodySize = request_body_.size();
     std::size_t responseBodySize = response_body_.size();
 
-    auto& gauge2 = server_->received_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}});
+    auto& gauge2 = server_->received_messages_size_bytes_gauge_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}});
     gauge2.Set(requestBodySize);
-    auto& gauge3 = server_->sent_messages_size_bytes_gauge_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
+    auto& gauge3 = server_->sent_messages_size_bytes_gauge_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
     gauge3.Set(responseBodySize);
 
-    auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, statusCodeStr}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
+    auto& histogram = server_->responses_delay_seconds_histogram_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}, {resultCodeLabel, statusCodeStr}}, server_->response_delay_seconds_histogram_bucket_boundaries_);
     histogram.Observe(durationSeconds);
-    auto& histogram2 = server_->received_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}}, server_->message_size_bytes_histogram_bucket_boundaries_);
+    auto& histogram2 = server_->received_messages_size_bytes_histogram_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}}, server_->message_size_bytes_histogram_bucket_boundaries_);
     histogram2.Observe(requestBodySize);
-    auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, statusCodeStr}}, server_->message_size_bytes_histogram_bucket_boundaries_);
+    auto& histogram3 = server_->sent_messages_size_bytes_histogram_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}, {resultCodeLabel, statusCodeStr}}, server_->message_size_bytes_histogram_bucket_boundaries_);
     histogram3.Observe(responseBodySize);
 
     // counters
-    auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
+    auto& counter = server_->observed_responses_counter_family_ptr_->Add({{"source", server_->source_}, {"method", req_.method()}, {resultCodeLabel, statusCodeStr}});
     counter.Increment();
 }
 
