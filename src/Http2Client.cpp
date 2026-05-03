@@ -226,8 +226,7 @@ void Http2Client::async_send(
 
         // Timer for expiration control (before submitting).
         // It must be cancelled in on_response() lambda.
-        const auto& session = self->connection_->getSession();
-        auto timer = std::make_shared<boost::asio::deadline_timer>(session.io_service());
+        auto timer = std::make_shared<boost::asio::deadline_timer>(self->connection_->getSession().io_service());
         timer->expires_from_now(boost::posix_time::milliseconds(requestTimeoutMs.count()));
         timer->async_wait([&, task, cb, method, timer](const boost::system::error_code& ec) {
             if (ec != boost::asio::error::operation_aborted) {
@@ -263,7 +262,14 @@ void Http2Client::async_send(
 
         //perform submit
         task->sendingUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
-        auto req = submit(session, headers, ec);
+        const nghttp2::asio_http2::client::request *req = nullptr;
+        try {
+            const auto& session = self->connection_->getSession();
+            req = submit(session, headers, ec);
+        }
+        catch (const std::exception& e) {
+            ert::tracing::Logger::error(ert::tracing::Logger::asString("Request submit exception: %s", e.what()), ERT_FILE_LOCATION);
+        }
         if (!req) {
             ert::tracing::Logger::error("Request submit error, closing connection ...", ERT_FILE_LOCATION);
             self->connection_->close();
