@@ -41,6 +41,7 @@ SOFTWARE.
 
 #include <string>
 #include <thread>
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <functional>
@@ -179,7 +180,7 @@ public:
      *
      * \return Http2Connection status
      */
-    const Status& getStatus() const;
+    Status getStatus() const;
 
     /**
      * Returns true if connection is opened
@@ -187,6 +188,11 @@ public:
      * \return Http2Connection status opened
      */
     bool isConnected() const;
+
+    /**
+     * Check if session object exists (not reset during reconnect).
+     */
+    bool hasSession() const { return session_ != nullptr; }
 
     /**
      * Waits while the connection is in progress
@@ -251,7 +257,7 @@ private:
     std::unique_ptr<nghttp2::asio_http2::client::session> session_;
 
     /// Class attributes
-    Status status_;
+    std::atomic<Status> status_;
     std::string host_;
     std::string port_;
     bool secure_;

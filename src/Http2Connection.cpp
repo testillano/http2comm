@@ -117,6 +117,7 @@ Http2Connection::~Http2Connection()
 }
 
 bool Http2Connection::reconnect() {
+    notifyClose();
     session_.reset();
     auto new_session_ptr = createSession(io_context_, host_, port_, secure_);
     if (!new_session_ptr) {
@@ -149,6 +150,7 @@ void Http2Connection::notifyClose()
 
 void Http2Connection::closeImpl()
 {
+    notifyClose();
     io_context_.stop();
 
     if (thread_.joinable())
@@ -156,7 +158,7 @@ void Http2Connection::closeImpl()
         thread_.join();
     }
 
-    if (isConnected())
+    if (session_)
     {
         session_->shutdown();
     }
@@ -164,11 +166,11 @@ void Http2Connection::closeImpl()
 
 void Http2Connection::close()
 {
-    if (isConnected())
+    notifyClose();
+    if (session_)
     {
         session_->shutdown();
     }
-    notifyClose();
 }
 
 nghttp2::asio_http2::client::session& Http2Connection::getSession()
@@ -194,11 +196,11 @@ bool Http2Connection::isSecure() const
     return secure_;
 }
 
-const Http2Connection::Status&
+Http2Connection::Status
 Http2Connection::getStatus()
 const
 {
-    return status_;
+    return status_.load();
 }
 
 bool Http2Connection::isConnected() const {
