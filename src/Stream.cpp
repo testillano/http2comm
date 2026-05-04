@@ -44,6 +44,7 @@ SOFTWARE.
 #include <ert/http2comm/Http.hpp>
 #include <ert/http2comm/Http2Server.hpp>
 #include <ert/http2comm/URLFunctions.hpp>
+#include <ert/http2comm/AsioCompat.hpp>
 
 namespace ert
 {
@@ -191,7 +192,7 @@ void Stream::commit()
     //auto self = shared_from_this();
 
     // Send response
-    res_.io_service().post([self]()
+    ert::http2comm::asio_compat::io_context(res_).post([self]()
     {
         try {
             std::lock_guard<std::mutex> guard(self->mutex_);

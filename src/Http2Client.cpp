@@ -205,8 +205,7 @@ void Http2Client::async_send(
     );
 
     auto task = std::make_shared<Http2Client::task>();
-    const auto& session = connection_->getSession();
-    auto& ioContext = session.io_service();
+    auto& ioContext = connection_->getIoContext();
 
     ioContext.post([self, cb, noBodyMethod, requestTimeoutMs, task, url = std::move(url), method, headers, body, this]
     {
@@ -226,7 +225,7 @@ void Http2Client::async_send(
 
         // Timer for expiration control (before submitting).
         // It must be cancelled in on_response() lambda.
-        auto timer = std::make_shared<boost::asio::deadline_timer>(self->connection_->getSession().io_service());
+        auto timer = std::make_shared<boost::asio::deadline_timer>(self->connection_->getIoContext());
         timer->expires_from_now(boost::posix_time::milliseconds(requestTimeoutMs.count()));
         timer->async_wait([&, task, cb, method, timer](const boost::system::error_code& ec) {
             if (ec != boost::asio::error::operation_aborted) {
@@ -387,8 +386,7 @@ void Http2Client::asyncSend(
         return async_send(method, path, body, headers, responseCallback, requestTimeoutMs);
     }
 
-    const auto& session = connection_->getSession();
-    auto& ioContext = session.io_service();
+    auto& ioContext = connection_->getIoContext();
 
     auto timer = std::make_shared<boost::asio::steady_timer>(ioContext);
     timer->expires_after(sendDelayMs);

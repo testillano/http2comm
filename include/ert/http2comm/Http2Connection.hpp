@@ -141,6 +141,19 @@ public:
     nghttp2::asio_http2::client::session& getSession();
 
     /**
+     * Returns the underlying ASIO io_context used by this connection.
+     *
+     * Exposed to avoid relying on the session accessor, whose name has
+     * diverged across nghttp2-asio variants (upstream exposes io_service(),
+     * some forks renamed it to io_context()). The io_context owned by
+     * Http2Connection is always the one passed to the session at
+     * construction time, so callers can post work on it directly.
+     *
+     * \return Reference to the io_context that runs this connection.
+     */
+    boost::asio::io_context& getIoContext() { return io_context_; }
+
+    /**
      * Returns the endpoint host
      *
      * \return Endpoint host

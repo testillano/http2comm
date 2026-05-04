@@ -50,6 +50,7 @@ SOFTWARE.
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/Http.hpp>
 #include <ert/http2comm/Http2Headers.hpp>
+#include <ert/http2comm/AsioCompat.hpp>
 
 namespace ert
 {
@@ -365,7 +366,7 @@ int Http2Server::stop()
     try
     {
         // stop internal io contexts
-        for (auto &ii : server_.io_services())
+        for (auto &ii : ert::http2comm::asio_compat::io_contexts(server_))
             if (!ii->stopped())
                 ii->stop();
         server_.stop();
