@@ -192,7 +192,7 @@ void Stream::commit()
     //auto self = shared_from_this();
 
     // Send response
-    ert::http2comm::asio_compat::io_context(res_).post([self]()
+    boost::asio::post(ert::http2comm::asio_compat::io_context(res_), [self]()
     {
         try {
             std::lock_guard<std::mutex> guard(self->mutex_);

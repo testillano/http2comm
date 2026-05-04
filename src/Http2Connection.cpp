@@ -90,7 +90,7 @@ void Http2Connection::configureSession() {
 Http2Connection::Http2Connection(const std::string& host,
                                  const std::string& port,
                                  bool secure) :
-    work_(boost::asio::io_context::work(io_context_)),
+    work_(boost::asio::make_work_guard(io_context_)),
     status_(Status::NOT_OPEN),
     host_(host),
     port_(port),

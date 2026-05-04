@@ -207,7 +207,7 @@ void Http2Client::async_send(
     auto task = std::make_shared<Http2Client::task>();
     auto& ioContext = connection_->getIoContext();
 
-    ioContext.post([self, cb, noBodyMethod, requestTimeoutMs, task, url = std::move(url), method, headers, body, this]
+    boost::asio::post(ioContext, [self, cb, noBodyMethod, requestTimeoutMs, task, url = std::move(url), method, headers, body, this]
     {
         boost::system::error_code ec;
 

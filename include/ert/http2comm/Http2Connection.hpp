@@ -247,7 +247,7 @@ private:
 
     /// ASIO attributes
     boost::asio::io_context io_context_;
-    boost::asio::io_context::work work_;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_;
     std::unique_ptr<nghttp2::asio_http2::client::session> session_;
 
     /// Class attributes
