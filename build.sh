@@ -48,6 +48,7 @@ usage() {
          base_os=alpine $0 --auto
          image_tag=test1 $0 --builder-image
          build_type=Debug $0 --auto
+         build_type=RelWithDebInfo $0 --auto
          DBUILD_XTRA_OPTS=--no-cache $0 --auto
 
 EOF

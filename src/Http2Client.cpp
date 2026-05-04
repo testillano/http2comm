@@ -275,7 +275,7 @@ void Http2Client::async_send(
         }
         if (!req) {
             ert::tracing::Logger::error("Request submit error, closing connection ...", ERT_FILE_LOCATION);
-            self->connection_->close();
+            self->connection_->notifyClose();
             // TODO OAM: client error, 468 (non-standard http status code)
 
             if (timer) {

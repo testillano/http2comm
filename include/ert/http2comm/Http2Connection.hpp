@@ -70,6 +70,8 @@ using connection_callback = std::function<void(Http2Connection&)>;
 
 class Http2Connection
 {
+    friend class Http2Client;
+
 public:
     /**
      * Enumeration for all possible connection status
