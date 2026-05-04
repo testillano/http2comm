@@ -73,7 +73,14 @@ std::unique_ptr<nghttp2::asio_http2::client::session> Http2Connection::createSes
 }
 
 void Http2Connection::configureSession() {
-    session_->on_connect([this](boost::asio::ip::tcp::resolver::iterator endpoint_it)
+    // The resolver iterator type exposed by Boost.Asio has changed across
+    // versions: `boost::asio::ip::tcp::resolver::iterator` (nested typedef)
+    // is not available in recent Boost releases, where only the underlying
+    // template `boost::asio::ip::basic_resolver_iterator<tcp>` remains.
+    // nghttp2-asio's `connect_cb` expects exactly that template instance,
+    // so use a generic lambda to let the compiler deduce the correct type
+    // regardless of the Boost version in use.
+    session_->on_connect([this](auto endpoint_it)
     {
         status_ = Status::OPEN;
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connected to '%s'", asString().c_str()), ERT_FILE_LOCATION));
