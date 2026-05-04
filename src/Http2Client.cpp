@@ -263,8 +263,12 @@ void Http2Client::async_send(
         task->sendingUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
         const nghttp2::asio_http2::client::request *req = nullptr;
         try {
-            const auto& session = self->connection_->getSession();
-            req = submit(session, headers, ec);
+            if (!self->connection_->isConnected()) {
+                ert::tracing::Logger::error("Request submit skipped: connection not open", ERT_FILE_LOCATION);
+            } else {
+                const auto& session = self->connection_->getSession();
+                req = submit(session, headers, ec);
+            }
         }
         catch (const std::exception& e) {
             ert::tracing::Logger::error(ert::tracing::Logger::asString("Request submit exception: %s", e.what()), ERT_FILE_LOCATION);
