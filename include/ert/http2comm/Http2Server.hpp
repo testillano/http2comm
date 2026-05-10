@@ -331,6 +331,13 @@ public:
     virtual void streamError(uint32_t errorCode, const std::string &serverName, const std::uint64_t &receptionId, const nghttp2::asio_http2::server::request &req);
 
     /**
+    * Virtual event for successful stream close (response sent)
+    *
+    * @param receptionId Unique reception identifier
+    */
+    virtual void streamClose(const std::uint64_t &receptionId) {;}
+
+    /**
     * Virtual dynamic response delay in milliseconds
     *
     * The server could set response dynamic delays which could postpone the stream commit (answer)

@@ -267,6 +267,7 @@ nghttp2::asio_http2::server::request_cb Http2Server::handler()
             else
             {
                 stream->close();
+                streamClose(stream->getReceptionId()); // virtual
             }
         });
     };
