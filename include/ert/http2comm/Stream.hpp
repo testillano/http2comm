@@ -117,6 +117,10 @@ public:
         reception_id_ = id;
     }
 
+    std::uint64_t getReceptionId() const {
+        return reception_id_;
+    }
+
     // append received data chunk
     void appendData(const uint8_t* data, std::size_t len);
 
