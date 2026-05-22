@@ -286,6 +286,7 @@ int Http2Server::serve(const std::string &bind_address,
     boost::system::error_code ec;
 
     server_.handle("/", handler());
+    registerHandlers(); // virtual hook for derived classes to register additional handlers
     server_.num_threads(numberThreads);
     server_.read_timeout(readKeepAlive);
 

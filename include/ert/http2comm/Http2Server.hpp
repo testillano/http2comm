@@ -354,6 +354,13 @@ public:
     }
 
     /**
+    * Virtual hook called after the generic handler is registered but before
+    * listen_and_serve(). Derived classes can override to register additional
+    * path-specific handlers on server_.
+    */
+    virtual void registerHandlers() {}
+
+    /**
     * Server start
     *
     * @param bind_address server bind address.
