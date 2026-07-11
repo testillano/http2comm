@@ -289,9 +289,11 @@ int Http2Server::serve(const std::string &bind_address,
     registerHandlers(); // virtual hook for derived classes to register additional handlers
     server_.num_threads(numberThreads);
     server_.read_timeout(readKeepAlive);
+#ifdef H2COMM_MAX_CONCURRENT_STREAMS
     if (max_concurrent_streams_ > 0) {
         server_.max_concurrent_streams(max_concurrent_streams_);
     }
+#endif
 
     if (secure)
     {

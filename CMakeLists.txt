@@ -20,6 +20,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Optional: requires patched nghttp2-asio with max_concurrent_streams() method
+option(H2COMM_MAX_CONCURRENT_STREAMS "Enable max_concurrent_streams support (requires patched nghttp2-asio)" ON)
+if(H2COMM_MAX_CONCURRENT_STREAMS)
+  add_definitions(-DH2COMM_MAX_CONCURRENT_STREAMS)
+endif()
+
 ###########
 # Modules #
 ###########
