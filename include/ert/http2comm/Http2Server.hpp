@@ -71,6 +71,7 @@ class Http2Server
     boost::asio::io_context *timers_io_context_;
     std::unique_ptr<ert::queuedispatcher::QueueDispatcher> queue_dispatcher_;
     int queue_dispatcher_max_size_{};
+    uint32_t max_concurrent_streams_{};
 
     nghttp2::asio_http2::server::request_cb handler();
 
@@ -195,6 +196,16 @@ public:
     void setApiVersion(const std::string& apiVersion)
     {
         api_version_ = apiVersion;
+    }
+
+    /**
+    * Sets the maximum number of concurrent HTTP/2 streams per connection.
+    * Announced to clients in the SETTINGS frame upon connection.
+    * A value of 0 means "use library default" (256).
+    */
+    void setMaxConcurrentStreams(uint32_t maxConcurrentStreams)
+    {
+        max_concurrent_streams_ = maxConcurrentStreams;
     }
 
     // getters
