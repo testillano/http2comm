@@ -13,165 +13,95 @@ process the requests and answers properly.
 
 You could check an example of use at [h2agent](https://github.com/testillano/h2agent) project, where the server side capability is used to mock an HTTP/2 service within a testing ecosystem.
 
-## Project image
+## Build with Docker
 
-This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
+The project uses a single multi-stage `Dockerfile` with all dependencies built from source. No external builder images are required -- the build is fully self-contained from `ubuntu:24.04`.
+
+### Docker targets
+
+| Target | Produces | Description |
+|--------|----------|-------------|
+| `deps` | `http2comm_builder` | Toolchain + all libraries installed. |
+| `build` | `http2comm` | deps + http2comm compiled and installed. |
+
+### Quick build
 
 ```bash
-$> docker pull ghcr.io/testillano/http2comm:<tag>
+$ ./build.sh                    # builds everything (deps + library)
+$ ./build.sh --builder          # builds only deps stage
 ```
 
-You could also build it using the script `./build.sh` located at project root:
-
+Or directly with Docker:
 
 ```bash
-$> ./build.sh --project-image
+$ docker build --target build -t http2comm .          # full build
+$ docker build --target deps -t http2comm_builder .   # deps only
 ```
 
-This image is built with `./Dockerfile`.
-Both `ubuntu` and `alpine` base images are supported, but the official image uploaded is the one based in `ubuntu`.
+### Pulling pre-built images
 
-## Usage
-
-To run compilation over this image, just run with `docker`. The `entrypoint` (check it at `./deps/build.sh`) will fall back from `cmake` (looking for `CMakeLists.txt` file at project root, i.e. mounted on working directory `/code` to generate makefiles) to `make`, in order to build your source code. There are two available environment variables used by the builder script of this image: `BUILD_TYPE` (for `cmake`) and `MAKE_PROCS` (for `make`):
+Images are available at `github container registry` for every repository `tag`, and also for master as `latest`:
 
 ```bash
-$> envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
-$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-          ghcr.io/testillano/http2comm:<tag>
+$ docker pull ghcr.io/testillano/http2comm:<tag>
 ```
 
-## Build project with docker
+### Overriding dependency versions
 
-### Builder image
-
-This image is already available at `github container registry` and `docker hub` for every repository `tag`, and also for master as `latest`:
+All dependency versions are declared as `ARG` at the top of the `Dockerfile`. Override any version at build time:
 
 ```bash
-$> docker pull ghcr.io/testillano/http2comm_builder:<tag>
+$ docker build --build-arg ert_metrics_ver=v1.3.0 -t http2comm .
+$ ert_metrics_ver=v1.3.0 ./build.sh
 ```
 
-You could also build it using the script `./build.sh` located at project root:
+## Build natively
 
+This is a cmake-based library. Once dependencies are installed (see `Dockerfile` ARGs and RUN steps for the full list):
 
 ```bash
-$> ./build.sh --builder-image
+$ cmake . && make -j$(nproc)
 ```
 
-This image is built with `./Dockerfile.build`.
-Both `ubuntu` and `alpine` base images are supported, but the official image uploaded is the one based in `ubuntu`.
-
-### Usage
-
-Builder image is used to build the project library. To run compilation over this image, again, just run with `docker`:
+You could specify type of build:
 
 ```bash
-$> envs="-e MAKE_PROCS=$(grep processor /proc/cpuinfo -c) -e BUILD_TYPE=Release"
-$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-          ghcr.io/testillano/http2comm_builder:<tag>
-```
-
-You could generate documentation passing extra arguments to the [entry point](https://github.com/testillano/nghttp2/blob/master/deps/build.sh) behind:
-
-```bash
-$> docker run --rm -it -u $(id -u):$(id -g) ${envs} -v ${PWD}:/code -w /code \
-          ghcr.io/testillano/http2comm_builder::<tag>-build "" doc
-```
-
-You could also build the library using the script `./build.sh` located at project root:
-
-
-```bash
-$> ./build.sh --project
-```
-
-## Build project natively
-
-This is a cmake-based building library, so you may install cmake:
-
-```bash
-$> sudo apt-get install cmake
-```
-
-And then generate the makefiles from project root directory:
-
-```bash
-$> cmake .
-```
-
-You could specify type of build, 'Debug' or 'Release', for example:
-
-```bash
-$> cmake -DCMAKE_BUILD_TYPE=Debug .
-$> cmake -DCMAKE_BUILD_TYPE=Release .
-```
-
-You could also change the compilers used:
-
-```bash
-$> cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_C_COMPILER=/usr/bin/gcc
-```
-or
-
-```bash
-$> cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_C_COMPILER=/usr/bin/clang
+$ cmake -DCMAKE_BUILD_TYPE=Debug .
+$ cmake -DCMAKE_BUILD_TYPE=Release .
 ```
 
 ### Requirements
 
-Check the requirements described at building `dockerfile` (`./Dockerfile.build`) as well as all the ascendant docker images which are inherited:
-
-```
-http2comm builder (./Dockerfile.build)
-   |
-nghttp2 (https://github.com/testillano/nghttp2)
-```
+All dependencies and their versions are documented in the `Dockerfile` itself (the `ARG` declarations at the top and the `RUN` steps that install them).
 
 ### Build
 
 ```bash
-$> make
+$ make
 ```
 
 ### Clean
 
 ```bash
-$> make clean
+$ make clean
 ```
 
 ### Documentation
 
 ```bash
-$> make doc
-```
-
-```bash
-$> cd docs/doxygen
-$> tree -L 1
-     .
-     ├── Doxyfile
-     ├── html
-     ├── latex
-     └── man
+$ make doc
 ```
 
 ### Install
 
 ```bash
-$> sudo make install
-```
-
-Optionally you could specify another prefix for installation:
-
-```bash
-$> cmake -DMY_OWN_INSTALL_PREFIX=$HOME/mylibs/ert_http2comm
-$> make install
+$ sudo make install
 ```
 
 ### Uninstall
 
 ```bash
-$> cat install_manifest.txt | sudo xargs rm
+$ cat install_manifest.txt | sudo xargs rm
 ```
 
 ## Integration
@@ -194,8 +124,7 @@ target_link_libraries(foo PRIVATE ert_http2comm::ert_http2comm)
 
 ##### FetchContent
 
-Since CMake v3.11,
-[FetchContent](https://cmake.org/cmake/help/v3.11/module/FetchContent.html) can be used to automatically download the repository as a dependency at configure type.
+Since CMake v3.11, [FetchContent](https://cmake.org/cmake/help/v3.11/module/FetchContent.html) can be used to automatically download the repository as a dependency at configure time.
 
 Example:
 
@@ -207,7 +136,7 @@ FetchContent_Declare(ert_http2comm
   GIT_TAG vx.y.z)
 
 FetchContent_GetProperties(ert_http2comm)
-if(NOT ert_json_POPULATED)
+if(NOT ert_http2comm_POPULATED)
   FetchContent_Populate(ert_http2comm)
   add_subdirectory(${ert_http2comm_SOURCE_DIR} ${ert_http2comm_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
@@ -215,11 +144,15 @@ endif()
 target_link_libraries(foo PRIVATE ert_http2comm::ert_http2comm)
 ```
 
+## Note
+
+Downstream applications (h2agent) no longer inherit from this image directly. They install http2comm from source in their own multi-stage Dockerfile with pinned versions.
+
 ## Contributing
 
-Please, execute `astyle` formatting (using [frankwolf image](https://hub.docker.com/r/frankwolf/astyle)) before any pull request:
+Please, execute `astyle` formatting before any pull request:
 
 ```bash
-$> sources=$(find . -name "*.hpp" -o -name "*.cpp")
-$> docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
+$ sources=$(find . -name "*.hpp" -o -name "*.cpp")
+$ docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
 ```

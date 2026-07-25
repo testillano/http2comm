@@ -1,27 +1,19 @@
-name: Main project workflow
+name: CI
 on:
-  # Build on demand:
   workflow_dispatch:
     inputs:
       tag:
         description: 'Docker images tag'
         required: true
   push:
-    # Sequence of patterns matched against refs/heads
     branches:
-    # Push events on master branch
-    - master
-    # Sequence of patterns matched against refs/tags
+      - master
     tags:
-    - v*.*.*             # Push events to vx.y.z
+      - v*.*.*
 
   pull_request:
     branches:
-    - master
-
-  # Publish `vx.y.z` tags as releases:
-  #release:
-  #  types: [published]
+      - master
 
 jobs:
   format_style:
@@ -30,32 +22,21 @@ jobs:
     steps:
     -
       name: Check out the repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     -
       name: Run frankwolf format
       run: |
           sources=$(find . -name "*.hpp" -o -name "*.cpp")
-          #docker run -i --rm -v $PWD:/data frankwolf/astyle ${sources}
-          #git diff --exit-code
-          # docker cannot write on host directory:
           ! docker run -i --rm -v $PWD:/data frankwolf/astyle --dry-run ${sources} | grep ^Formatted
 
   build_and_push:
-    name: Build and push docker images to Docker Hub
+    needs: format_style
+    name: Build and push docker images
     runs-on: ubuntu-latest
-    #if: github.event_name == 'push'
     steps:
     -
       name: Check out the repo
-      uses: actions/checkout@v2
-    -
-      name: Login to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-        # logout at job end:
-        logout: true
+      uses: actions/checkout@v4
     -
       name: Login to GitHub Container Registry
       uses: docker/login-action@v1
@@ -63,41 +44,35 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-        # logout at job end:
         logout: true
     -
       name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     -
-      name: Build (but not push) builder image
+      name: Build builder image (deps stage)
       id: docker_build1
       uses: docker/build-push-action@v2
       with:
         tags: ghcr.io/testillano/http2comm_builder:local
-        file: Dockerfile.build
-        build-args: base_os=ubuntu
+        file: Dockerfile
+        target: deps
         context: .
         platforms: linux/amd64
+        no-cache: true
         push: true
     -
-      name: Image digest
-      run: echo ${{ steps.docker_build1.outputs.digest }}
-    -
-      name: Build (but not push) project image
+      name: Build project image (deps + library)
       id: docker_build2
       uses: docker/build-push-action@v2
       with:
         tags: ghcr.io/testillano/http2comm:local
         file: Dockerfile
-        build-args: base_tag=local
+        target: build
         context: .
         platforms: linux/amd64
         load: true
     -
-      name: Image2 digest
-      run: echo ${{ steps.docker_build2.outputs.digest }}
-    -
-      name: Push images manually
+      name: Push images
       run: |
         # workflow dispatch event:
         image_tag=${{ github.event.inputs.tag }}
@@ -114,11 +89,11 @@ jobs:
 
         echo Processed image_tag=$image_tag
 
-        # Builder already pushed, just re-tag
+        # Builder already pushed as :local, re-tag
         docker pull ghcr.io/testillano/http2comm_builder:local
         docker tag ghcr.io/testillano/http2comm_builder:local ghcr.io/testillano/http2comm_builder:${image_tag}
         docker push ghcr.io/testillano/http2comm_builder:${image_tag}
 
-        # Project image from local
+        # Project image
         docker tag ghcr.io/testillano/http2comm:local ghcr.io/testillano/http2comm:${image_tag}
         docker push ghcr.io/testillano/http2comm:${image_tag}
