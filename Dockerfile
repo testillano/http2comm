@@ -33,7 +33,7 @@ ARG ert_logger_ver=v1.1.1
 ARG ert_queuedispatcher_ver=v1.1.0
 ARG jupp0r_prometheuscpp_ver=v1.3.0
 ARG civetweb_civetweb_ver=v1.16
-ARG ert_metrics_ver=v1.3.0
+ARG ert_metrics_ver=v1.3.1
 
 # ---------------------------------------------------------------------------
 # System packages

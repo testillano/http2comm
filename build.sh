@@ -8,7 +8,7 @@
 # Usage:
 #   ./build.sh                              # build with defaults (all targets)
 #   ./build.sh --builder                    # deps stage only
-#   ert_metrics_ver=v1.3.0 ./build.sh      # override a version
+#   ert_metrics_ver=v1.3.1 ./build.sh      # override a version
 #   DBUILD_XTRA_OPTS=--no-cache ./build.sh  # force rebuild
 #
 # Environment variables (override any version):
@@ -114,7 +114,7 @@ case "${1:-}" in
     echo ""
     echo "Examples:"
     echo "  $0"
-    echo "  ert_metrics_ver=v1.3.0 $0"
+    echo "  ert_metrics_ver=v1.3.1 $0"
     echo "  DBUILD_XTRA_OPTS=--no-cache $0"
     ;;
   "") build_all ;;

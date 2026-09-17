@@ -51,8 +51,8 @@ $ docker pull ghcr.io/testillano/http2comm:<tag>
 All dependency versions are declared as `ARG` at the top of the `Dockerfile`. Override any version at build time:
 
 ```bash
-$ docker build --build-arg ert_metrics_ver=v1.3.0 -t http2comm .
-$ ert_metrics_ver=v1.3.0 ./build.sh
+$ docker build --build-arg ert_metrics_ver=v1.3.1 -t http2comm .
+$ ert_metrics_ver=v1.3.1 ./build.sh
 ```
 
 ## Build natively
