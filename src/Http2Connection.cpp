@@ -83,6 +83,7 @@ void Http2Connection::configureSession() {
     session_->on_connect([this](auto endpoint_it)
     {
         status_ = Status::OPEN;
+        ever_connected_ = true;
         LOGINFORMATIONAL(ert::tracing::Logger::informational(ert::tracing::Logger::asString("Connected to '%s'", asString().c_str()), ERT_FILE_LOCATION));
         status_change_cond_var_.notify_one();
     });
@@ -113,12 +114,30 @@ Http2Connection::Http2Connection(const std::string& host,
 
 Http2Connection::~Http2Connection()
 {
-    closeImpl();
+    // A destructor must never let an exception escape (it would call
+    // std::terminate). closeImpl() joins/stops the io_context thread and shuts
+    // the session down, operations that may throw under teardown races.
+    try
+    {
+        closeImpl();
+    }
+    catch (const std::exception& e)
+    {
+        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Exception while closing connection '%s': %s", asString().c_str(), e.what()), ERT_FILE_LOCATION));
+    }
+    catch (...)
+    {
+        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString("Unknown exception while closing connection '%s'", asString().c_str()), ERT_FILE_LOCATION));
+    }
 }
 
 bool Http2Connection::reconnect() {
     notifyClose();
     session_.reset();
+    // The new session has not connected yet: clear the flag so a teardown while
+    // reconnecting does not call shutdown() on a not-yet-connected session.
+    // on_connect() will set it true again once the handshake completes.
+    ever_connected_ = false;
     auto new_session_ptr = createSession(io_context_, host_, port_, secure_);
     if (!new_session_ptr) {
         return false;
@@ -151,23 +170,77 @@ void Http2Connection::notifyClose()
 void Http2Connection::closeImpl()
 {
     notifyClose();
+
+    // A connection owns its io_context and the single thread that runs it.
+    // INVARIANT (caller responsibility): a connection must NEVER be destroyed
+    // from its own io_context thread. Doing so makes a clean teardown
+    // impossible -- joining the thread from itself deadlocks, and the
+    // session/io_context are still in use by the running handler. Callers must
+    // guarantee this by releasing the last reference OFF the io thread (e.g.
+    // h2agent posts chain continuations to a worker pool so the endpoint's last
+    // reference is dropped there, not inside the connection's io thread).
+    //
+    // KNOWN LIMITATION / TECH DEBT: if the invariant is violated we cannot make
+    // teardown fully safe with the current design (io_context_ is a direct
+    // member destroyed as ~Http2Connection unwinds, while the offending thread
+    // is still inside io_context_.run()). We log loudly and detach to avoid an
+    // immediate terminate(), but this leaves a use-after-free window (confirmed
+    // by ASAN). A complete fix would require reworking ownership so the
+    // io_context outlives its thread (e.g. shared_ptr self-ownership + posting
+    // destruction elsewhere); intentionally deferred to avoid a large refactor.
+    // The supported guarantee is: honour the invariant and this branch is never
+    // taken.
+    const bool onOwnThread = thread_.joinable() &&
+                             (thread_.get_id() == std::this_thread::get_id());
+
+    if (onOwnThread)
+    {
+        // Invariant violated: we are being destroyed from inside our own event
+        // loop. There is NO fully-safe teardown here -- once ~Http2Connection
+        // returns, the members (io_context_, session_) are destroyed while this
+        // very thread is still executing inside io_context_.run(). We cannot
+        // join (self-deadlock) and detaching does not prevent the member
+        // destruction that follows. The only real fix is to never reach this
+        // state; callers must release the last reference off the io thread
+        // (h2agent posts chain continuations to a worker pool for exactly this
+        // reason). We log loudly so the ownership bug is diagnosable, detach to
+        // let std::thread's destructor not terminate(), and skip session
+        // shutdown / io_context stop (touching them from the running handler
+        // would only widen the race).
+        LOGWARNING(ert::tracing::Logger::warning(ert::tracing::Logger::asString(
+            "Connection '%s' destroyed from its own io_context thread: unsafe teardown (caller ownership bug). Release the connection off its io thread.",
+            asString().c_str()), ERT_FILE_LOCATION));
+        thread_.detach();
+        return;
+    }
+
+    // Normal teardown from an external thread.
+    // Shut the session down BEFORE stopping the io_context: nghttp2-asio's
+    // shutdown() posts work to the event loop, which must still be alive to
+    // process it. Only shut down a session that actually connected: shutting
+    // down one that never established a connection (e.g. endpoint on a closed
+    // port, stuck reconnecting) dereferences half-initialized internals and
+    // segfaults inside nghttp2.
+    if (session_ && ever_connected_)
+    {
+        session_->shutdown();
+    }
+
     io_context_.stop();
 
     if (thread_.joinable())
     {
-        thread_.join();
-    }
-
-    if (session_)
-    {
-        session_->shutdown();
+        thread_.join();  // safe: we are on a different thread and the loop is stopping
     }
 }
 
 void Http2Connection::close()
 {
     notifyClose();
-    if (session_)
+    // Same guard as closeImpl(): never shut down a session that never connected
+    // (segfaults inside nghttp2). This method keeps the io_context running (it
+    // is a soft close, not a teardown), so no thread handling is needed here.
+    if (session_ && ever_connected_)
     {
         session_->shutdown();
     }

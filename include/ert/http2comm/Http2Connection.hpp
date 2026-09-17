@@ -260,6 +260,11 @@ private:
 
     /// Class attributes
     std::atomic<Status> status_;
+    // Set true once the session actually established a connection (on_connect).
+    // Used to avoid calling session_->shutdown() on a session that never
+    // connected (e.g. an endpoint pointing at a closed port), which segfaults
+    // inside nghttp2.
+    std::atomic<bool> ever_connected_{false};
     std::string host_;
     std::string port_;
     bool secure_;
