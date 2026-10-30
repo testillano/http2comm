@@ -50,6 +50,7 @@ SOFTWARE.
 
 #include <ert/http2comm/Stream.hpp>
 #include <ert/http2comm/Http2Headers.hpp>
+#include <ert/http2comm/MetricsCache.hpp>
 
 #include <ert/queuedispatcher/QueueDispatcher.hpp>
 #include <ert/metrics/Metrics.hpp>
@@ -98,6 +99,23 @@ class Http2Server
     ert::metrics::histogram_family_t *sent_messages_size_bytes_histogram_family_ptr_{};
     ert::metrics::bucket_boundaries_t response_delay_seconds_histogram_bucket_boundaries_;
     ert::metrics::bucket_boundaries_t message_size_bytes_histogram_bucket_boundaries_; // both received/sent (simplification)
+
+    // Hot path metric references, resolved once per labels combination (see MetricsCache):
+    struct ResponseMetrics { // labels: source, method, result code
+        ert::metrics::gauge_t *delayGauge;
+        ert::metrics::gauge_t *sentSizeGauge;
+        ert::metrics::histogram_t *delayHistogram;
+        ert::metrics::histogram_t *sentSizeHistogram;
+        ert::metrics::counter_t *responsesCounter;
+    };
+    struct ReceivedMetrics { // labels: source, method
+        ert::metrics::gauge_t *sizeGauge;
+        ert::metrics::histogram_t *sizeHistogram;
+    };
+    MetricsCache<ResponseMetrics> response_metrics_{};
+    MetricsCache<ReceivedMetrics> received_metrics_{};
+    MetricsCache<ert::metrics::counter_t *> accepted_counters_{};
+    MetricsCache<ert::metrics::counter_t *> errored_counters_{};
 
     std::atomic<std::uint64_t> reception_id_{};
     std::atomic<std::size_t> maximum_request_body_size_{};

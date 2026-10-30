@@ -168,8 +168,10 @@ void Http2Client::async_send(
         {
             // metrics
             if (metrics_) {
-                auto& counter = observed_requests_unsents_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
-                counter.Increment();
+                ert::metrics::counter_t *counter = unsents_counters_.get(method, [&] {
+                    return &observed_requests_unsents_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
+                });
+                counter->Increment();
             }
 
             // Invoke callback
@@ -187,14 +189,18 @@ void Http2Client::async_send(
 
     // metrics
     if (metrics_) {
-        auto& counter = observed_requests_sents_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
-        counter.Increment();
+        const SentMetrics &sent = sent_metrics_.get(method, [&] {
+            const ert::metrics::labels_t labels = {{"source", source_}, {"method", method}};
+            return SentMetrics{
+                &observed_requests_sents_counter_family_ptr_->Add(labels),
+                &sent_messages_size_bytes_gauge_family_ptr_->Add(labels),
+                &sent_messages_size_bytes_histogram_family_ptr_->Add(labels, message_size_bytes_histogram_bucket_boundaries_)};
+        });
+        sent.sentsCounter->Increment();
 
         std::size_t requestBodySize = (noBodyMethod ? 0 : body.size());
-        auto& gauge = sent_messages_size_bytes_gauge_family_ptr_->Add({{"source", source_}, {"method", method}});
-        gauge.Set(requestBodySize);
-        auto& histogram = sent_messages_size_bytes_histogram_family_ptr_->Add({{"source", source_}, {"method", method}}, message_size_bytes_histogram_bucket_boundaries_);
-        histogram.Observe(requestBodySize);
+        sent.sizeGauge->Set(requestBodySize);
+        sent.sizeHistogram->Observe(requestBodySize);
     }
 
     auto url = getUri(path);
@@ -240,8 +246,10 @@ void Http2Client::async_send(
 
                     // metrics
                     if (metrics_) {
-                        auto& counter = observed_responses_timedout_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
-                        counter.Increment();
+                        ert::metrics::counter_t *counter = timedout_counters_.get(method, [&] {
+                            return &observed_responses_timedout_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
+                        });
+                        counter->Increment();
                     }
 
                     // Optional: cancel HTTP/2 stream if possible
@@ -304,8 +312,15 @@ void Http2Client::async_send(
 
             // metrics
             if (metrics_) {
-                auto& counter = observed_responses_received_counter_family_ptr_->Add({{"source", source_}, {"method", method}, {"status_code", std::to_string(res.status_code())}});
-                counter.Increment();
+                const int statusCode = res.status_code();
+                const ResponseMetrics &response = response_metrics_.get(metricsKey(method, "status_code", statusCode), [&] {
+                    const ert::metrics::labels_t labels = {{"source", source_}, {"method", method}, {"status_code", std::to_string(statusCode)}};
+                    return ResponseMetrics{
+                        &observed_responses_received_counter_family_ptr_->Add(labels),
+                        &responses_delay_seconds_gauge_family_ptr_->Add(labels),
+                        &responses_delay_seconds_histogram_family_ptr_->Add(labels, response_delay_seconds_histogram_bucket_boundaries_)};
+                });
+                response.receivedCounter->Increment();
 
                 task->receptionUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
                 double durationUs = (task->receptionUs - task->sendingUs).count();
@@ -314,10 +329,8 @@ void Http2Client::async_send(
                     std::string msg = ert::tracing::Logger::asString("Context duration: %d us", durationUs);
                     ert::tracing::Logger::debug(msg, ERT_FILE_LOCATION);
                 );
-                auto& gauge = responses_delay_seconds_gauge_family_ptr_->Add({{"source", source_}, {"method", method}, {"status_code", std::to_string(res.status_code())}});
-                gauge.Set(durationSeconds);
-                auto& histogram = responses_delay_seconds_histogram_family_ptr_->Add({{"source", source_}, {"method", method}, {"status_code", std::to_string(res.status_code())}}, response_delay_seconds_histogram_bucket_boundaries_);
-                histogram.Observe(durationSeconds);
+                response.delayGauge->Set(durationSeconds);
+                response.delayHistogram->Observe(durationSeconds);
             }
 
             res.on_data(
@@ -346,10 +359,15 @@ void Http2Client::async_send(
                     // metrics
                     if (metrics_) {
                         std::size_t responseBodySize = task->data.size();
-                        auto& gauge = received_messages_size_bytes_gauge_family_ptr_->Add({{"source", source_}, {"method", method}, {"status_code", std::to_string(res.status_code())}});
-                        gauge.Set(responseBodySize);
-                        auto& histogram = received_messages_size_bytes_histogram_family_ptr_->Add({{"source", source_}, {"method", method}, {"status_code", std::to_string(res.status_code())}}, message_size_bytes_histogram_bucket_boundaries_);
-                        histogram.Observe(responseBodySize);
+                        const int statusCode = res.status_code();
+                        const ReceivedSizeMetrics &receivedSize = received_size_metrics_.get(metricsKey(method, "status_code", statusCode), [&] {
+                            const ert::metrics::labels_t labels = {{"source", source_}, {"method", method}, {"status_code", std::to_string(statusCode)}};
+                            return ReceivedSizeMetrics{
+                                &received_messages_size_bytes_gauge_family_ptr_->Add(labels),
+                                &received_messages_size_bytes_histogram_family_ptr_->Add(labels, message_size_bytes_histogram_bucket_boundaries_)};
+                        });
+                        receivedSize.sizeGauge->Set(responseBodySize);
+                        receivedSize.sizeHistogram->Observe(responseBodySize);
                     }
                 }
             });

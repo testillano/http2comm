@@ -146,8 +146,11 @@ void Http2Server::receiveError(const nghttp2::asio_http2::server::request &req,
     // metrics
     if (metrics_)
     {
-        auto &counter = observed_requests_errored_counter_family_ptr_->Add({{"source", source_}, {"method", req.method()}});
-        counter.Increment();
+        const std::string &method = req.method();
+        ert::metrics::counter_t *counter = errored_counters_.get(method, [&] {
+            return &observed_requests_errored_counter_family_ptr_->Add({{"source", source_}, {"method", method}});
+        });
+        counter->Increment();
     }
 
     statusCode = error.first;
