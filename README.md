@@ -1,7 +1,7 @@
 # C++ HTTP/2 wrapper library
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://codedocs.xyz/testillano/http2comm.svg)](https://codedocs.xyz/testillano/http2comm/index.html)
+[![Documentation](https://img.shields.io/badge/docs-doxygen-blue.svg)](https://testillano.github.io/http2comm/doxygen/)
 [![Ask Me Anything !](https://img.shields.io/badge/Ask%20me-anything-1abc9c.svg)](https://github.com/testillano)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/testillano/http2comm/graphs/commit-activity)
 [![Main project workflow](https://github.com/testillano/http2comm/actions/workflows/ci.yml/badge.svg)](https://github.com/testillano/http2comm/actions/workflows/ci.yml)

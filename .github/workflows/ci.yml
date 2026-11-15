@@ -29,6 +29,14 @@ jobs:
           sources=$(find . -name "*.hpp" -o -name "*.cpp")
           ! docker run -i --rm -v $PWD:/data frankwolf/astyle --dry-run ${sources} | grep ^Formatted
 
+  # Doxygen html for the GitHub Pages site (doxygen/), formerly served by codedocs.xyz
+  doxygen:
+    uses: testillano/workflows/.github/workflows/doxygen.yml@v1
+    with:
+      doxyfile_dir: docs/doxygen
+      doxyfile_overrides: |
+        PROJECT_NUMBER=${{ github.ref_name }}
+
   build_and_push:
     needs: format_style
     name: Build and push docker images
@@ -97,3 +105,37 @@ jobs:
         # Project image
         docker tag ghcr.io/testillano/http2comm:local ghcr.io/testillano/http2comm:${image_tag}
         docker push ghcr.io/testillano/http2comm:${image_tag}
+
+  # Deploy the Pages site in a dedicated job on a clean runner: actions/deploy-pages@v4
+  # requires the 'github-pages' environment to be declared on the job.
+  deploy_pages:
+    needs: doxygen
+    name: Deploy GitHub Pages
+    runs-on: ubuntu-latest
+    # Do not fail the whole pipeline if Pages hiccups:
+    continue-on-error: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    -
+      name: Setup Pages
+      uses: actions/configure-pages@v3
+    -
+      name: Download doxygen html
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.doxygen.outputs.artifact_name }}
+        path: site/doxygen
+    -
+      name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: site
+    -
+      name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
